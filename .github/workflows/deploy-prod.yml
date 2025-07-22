@@ -44,6 +44,7 @@ jobs:
       with:
         enable-AzPSSession: false
         auth-type: IDENTITY
+        allow-no-subscriptions: true
         
     - name: Upload to Azure Blob Storage
       uses: azure/CLI@v2
