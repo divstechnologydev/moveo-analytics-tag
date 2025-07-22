@@ -39,17 +39,11 @@ jobs:
         # Clean up temp file
         rm src/moveo-one-temp.js
         
-    - name: Login to Azure
-      uses: azure/login@v2
-      with:
-        enable-AzPSSession: false
-        auth-type: IDENTITY
-        allow-no-subscriptions: true
-        
     - name: Upload to Azure Blob Storage
       uses: azure/CLI@v2
       with:
         inlineScript: |
+          az login --identity --allow-no-subscriptions
           az storage blob upload \
             --account-name ${{ secrets.DEV_STORAGE_ACCOUNT }} \
             --container-name ${{ secrets.DEV_CONTAINER_NAME }} \
