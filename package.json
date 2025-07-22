@@ -1,0 +1,11 @@
+{
+  "name": "moveo-analytics-tag",
+  "version": "1.0.0",
+  "description": "Moveo Analytics JavaScript Tag",
+  "scripts": {
+    "minify": "terser src/moveo-one.js -c -m -o dist/moveo-one-script.min.js"
+  },
+  "devDependencies": {
+    "terser": "^5.24.0"
+  }
+} 

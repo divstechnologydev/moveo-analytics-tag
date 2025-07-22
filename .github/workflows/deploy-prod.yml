@@ -1,0 +1,60 @@
+name: Deploy Moveo Analytics Tag - Production
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Install Terser globally
+      run: npm install -g terser
+      
+    - name: Create dist directory
+      run: mkdir -p dist
+      
+    - name: Replace environment variables and minify
+      run: |
+        # Replace API_URL placeholder with production URL
+        sed 's|{{API_URL}}|${{ secrets.PROD_API_URL }}|g' src/moveo-one.js > src/moveo-one-temp.js
+        
+        # Minify the file
+        terser src/moveo-one-temp.js -c -m -o dist/moveo-one-script.min.js
+        
+        # Clean up temp file
+        rm src/moveo-one-temp.js
+        
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+    - name: Upload to Azure Blob Storage
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          az storage blob upload \
+            --account-name ${{ secrets.PROD_STORAGE_ACCOUNT }} \
+            --container-name ${{ secrets.PROD_CONTAINER_NAME }} \
+            --name moveo-one-script.min.js \
+            --file dist/moveo-one-script.min.js \
+            --auth-mode login \
+            --content-type application/javascript \
+            --overwrite true 
