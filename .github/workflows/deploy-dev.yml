@@ -43,7 +43,7 @@ jobs:
       uses: azure/login@v2
       with:
         enable-AzPSSession: false
-        auth-type: OIDC
+        auth-type: IDENTITY
         
     - name: Upload to Azure Blob Storage
       uses: azure/CLI@v2
