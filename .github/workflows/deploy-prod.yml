@@ -40,12 +40,12 @@ jobs:
         rm src/moveo-one-temp.js
         
     - name: Login to Azure
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         enable-AzPSSession: false
         
     - name: Upload to Azure Blob Storage
-      uses: azure/CLI@v1
+      uses: azure/CLI@v2
       with:
         inlineScript: |
           az storage blob upload \
