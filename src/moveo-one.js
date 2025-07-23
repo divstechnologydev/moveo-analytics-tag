@@ -43,7 +43,8 @@
   
         // Impression tracking state
         this.impressionObserver = null;
-        this.seenElements = new WeakSet();
+        this.seenElements = new WeakSet(); // Elements currently in viewport
+        this.appearedElements = new WeakSet(); // Elements that have actually appeared (sent appear event)
         this.trackedElements = new WeakSet(); // Track elements without DOM attributes
         this.trackedLinks = new WeakSet(); // Track links without DOM attributes
         this.trackedMedia = new WeakSet(); // Track media without DOM attributes
@@ -452,11 +453,12 @@
         this.sendEventImmediate(event);
       }
   
-      // Send single event immediately using fetch with keepalive
+      // Send single event immediately using optimized approach for page unload scenarios
       sendEventImmediate(event) {
         const data = JSON.stringify({ events: [event] });
   
-        // Use fetch with keepalive instead of sendBeacon to maintain headers
+        // For outbound links and page unloads, we need maximum reliability
+        // Use fetch with keepalive and additional optimizations
         fetch(API_URL, {
           method: "POST",
           headers: {
@@ -465,7 +467,13 @@
           },
           body: data,
           keepalive: true, // Ensures request completes even if page unloads
-        }).catch((error) => console.error("MoveoOne Immediate Error:", error));
+          // Additional options for better reliability
+          signal: AbortSignal.timeout(3000), // 3 second timeout for faster response
+        }).catch((error) => {
+          if (LOGGING_ENABLED) {
+            console.error("MoveoOne Immediate Error:", error);
+          }
+        });
       }
   
       enrichWithGeolocation() {
@@ -649,7 +657,7 @@
   
         // Configuration
         const IO_THRESHOLD = 0.2; // 20% visible
-        const APPEAR_DELAY = 1000; // 1 second delay for appear events
+        const APPEAR_DELAY = 800; // ms delay for appear events
   
         // Track pending appear events with timeouts
         const pendingAppearEvents = new Map(); // element -> timeout ID
@@ -678,12 +686,14 @@
                         e.boundingClientRect,
                         "appear"
                       );
+                      // Mark as actually appeared (after sending appear event)
+                      this.appearedElements.add(e.target);
                     }
                     // Clean up the pending event
                     pendingAppearEvents.delete(e.target);
                   }, APPEAR_DELAY);
   
-                  // Store the timeout and mark as seen
+                  // Store the timeout and mark as seen (currently in viewport)
                   pendingAppearEvents.set(e.target, timeoutId);
                   this.seenElements.add(e.target);
                 } else if (!e.isIntersecting && this.seenElements.has(e.target)) {
@@ -694,17 +704,19 @@
                   if (pendingTimeout) {
                     clearTimeout(pendingTimeout);
                     pendingAppearEvents.delete(e.target);
-                  } else {
+                  } else if (this.appearedElements.has(e.target)) {
                     // Element was visible long enough to have triggered appear event
-                    // So now send disappear event
+                    // AND has actually appeared - so now send disappear event
                     this.sendAutoImpression(
                       e.target,
                       e.boundingClientRect,
                       "disappear"
                     );
+                    // Remove from appeared elements since it's now disappeared
+                    this.appearedElements.delete(e.target);
                   }
   
-                  // Remove from seen elements
+                  // Remove from seen elements (no longer in viewport)
                   this.seenElements.delete(e.target);
                 }
               });
@@ -747,6 +759,8 @@
                     // Element is already visible - send appear event immediately
                     this.seenElements.add(el);
                     this.sendAutoImpression(el, rect, "appear");
+                    // Mark as actually appeared
+                    this.appearedElements.add(el);
                   }
                 }
               });
@@ -1421,9 +1435,10 @@
                     console.log("MoveoOne: Download tracked -", filename);
                   }
                 } else if (isOutbound) {
-                  // Handle outbound link tracking
+                  // Handle outbound link tracking with improved reliability
                   const domain = new URL(url).hostname;
   
+                  // Track the outbound link immediately (don't prevent default behavior)
                   this.trackImmediate("outbound_link", {
                     semanticGroup: this.getSemanticGroup(link),
                     id: this.generateStableElementId(link),
@@ -1435,6 +1450,9 @@
                   if (LOGGING_ENABLED) {
                     console.log("MoveoOne: Outbound link tracked -", domain);
                   }
+                  
+                  // Let the browser handle navigation naturally (new tab, same tab, etc.)
+                  // The trackImmediate method uses keepalive to ensure the request completes
                 }
               });
             }
@@ -1475,7 +1493,32 @@
         window.addEventListener("beforeunload", () => {
           // Send any remaining events immediately
           if (this.buffer.length > 0) {
-            // Use fetch with keepalive for reliable delivery with proper headers
+            // Use optimized approach for reliable delivery during page unload
+            const data = JSON.stringify({ events: [...this.buffer] });
+            fetch(API_URL, {
+              method: "POST",
+              headers: {
+                Authorization: this.token,
+                "Content-Type": "application/json",
+              },
+              body: data,
+              keepalive: true, // Ensures request completes even if page unloads
+              signal: AbortSignal.timeout(5000), // 5 second timeout
+            }).catch((error) => {
+              if (LOGGING_ENABLED) {
+                console.error("MoveoOne Unload Error:", error);
+              }
+            });
+          }
+  
+          // Update session timestamp
+          this.updateSessionActivity();
+        });
+  
+        // Backup: Also listen for pagehide event (more reliable than beforeunload)
+        window.addEventListener("pagehide", () => {
+          // Send any remaining events immediately
+          if (this.buffer.length > 0) {
             const data = JSON.stringify({ events: [...this.buffer] });
             fetch(API_URL, {
               method: "POST",
@@ -1485,9 +1528,10 @@
               },
               body: data,
               keepalive: true,
+              signal: AbortSignal.timeout(5000),
             }).catch((error) => {
               if (LOGGING_ENABLED) {
-                console.error("MoveoOne Unload Error:", error);
+                console.error("MoveoOne PageHide Error:", error);
               }
             });
           }
