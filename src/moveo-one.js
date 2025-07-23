@@ -44,6 +44,9 @@
         // Impression tracking state
         this.impressionObserver = null;
         this.seenElements = new WeakSet();
+        this.trackedElements = new WeakSet(); // Track elements without DOM attributes
+        this.trackedLinks = new WeakSet(); // Track links without DOM attributes
+        this.trackedMedia = new WeakSet(); // Track media without DOM attributes
         this.pendingImpressions = []; // Queue for impression events before session starts
         this.pendingImmediateEvents = []; // Queue for immediate events before session starts
   
@@ -715,12 +718,12 @@
           if (!el || el.nodeType !== 1) return; // Only element nodes
   
           // Skip elements that are already being observed
-          if (el.dataset && el.dataset.moveoObserved) return;
+          if (this.trackedElements.has(el)) return;
   
           // Use the same shouldTrackElement logic for consistency with click/hover tracking
           if (this.shouldTrackElement(el)) {
             this.impressionObserver.observe(el);
-            el.dataset.moveoObserved = "true";
+            this.trackedElements.add(el);
           }
         };
   
@@ -728,26 +731,26 @@
         const performInitialScan = () => {
           document.querySelectorAll("*").forEach(addIfInteresting);
   
-          // Handle elements that are already visible when observer starts
-          setTimeout(() => {
-            const visibleElements = document.querySelectorAll("*");
-            visibleElements.forEach((el) => {
-              if (el.dataset && el.dataset.moveoObserved) {
-                const rect = el.getBoundingClientRect();
-                const isVisible =
-                  rect.top < window.innerHeight &&
-                  rect.bottom > 0 &&
-                  rect.width > 0 &&
-                  rect.height > 0;
+                      // Handle elements that are already visible when observer starts
+            setTimeout(() => {
+              const visibleElements = document.querySelectorAll("*");
+              visibleElements.forEach((el) => {
+                if (this.trackedElements.has(el)) {
+                  const rect = el.getBoundingClientRect();
+                  const isVisible =
+                    rect.top < window.innerHeight &&
+                    rect.bottom > 0 &&
+                    rect.width > 0 &&
+                    rect.height > 0;
   
-                if (isVisible && !this.seenElements.has(el)) {
-                  // Element is already visible - send appear event immediately
-                  this.seenElements.add(el);
-                  this.sendAutoImpression(el, rect, "appear");
+                  if (isVisible && !this.seenElements.has(el)) {
+                    // Element is already visible - send appear event immediately
+                    this.seenElements.add(el);
+                    this.sendAutoImpression(el, rect, "appear");
+                  }
                 }
-              }
-            });
-          }, 100); // Small delay to ensure observer is fully set up
+              });
+            }, 100); // Small delay to ensure observer is fully set up
         };
   
         if (document.readyState === "loading") {
@@ -1384,7 +1387,7 @@
   
           links.forEach((link) => {
             // Skip if already tracked
-            if (link.dataset.moveoLinkTracked) return;
+            if (this.trackedLinks.has(link)) return;
   
             const url = link.href;
   
@@ -1398,7 +1401,7 @@
   
             // Only track if it's either downloadable or outbound
             if (isDownloadable || isOutbound) {
-              link.dataset.moveoLinkTracked = "true";
+              this.trackedLinks.add(link);
   
               link.addEventListener("click", (event) => {
                 if (isDownloadable) {
@@ -1536,8 +1539,8 @@
   
           mediaElements.forEach((media) => {
             // Avoid duplicate listeners by checking if already tracked
-            if (media.dataset.moveoTracked) return;
-            media.dataset.moveoTracked = "true";
+            if (this.trackedMedia.has(media)) return;
+            this.trackedMedia.add(media);
   
             const mediaType = media.tagName.toLowerCase();
             const mediaId = this.generateStableElementId(media);
