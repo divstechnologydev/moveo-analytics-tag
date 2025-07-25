@@ -12,7 +12,6 @@
     class MoveoOneWeb {
       constructor(token) {
         this.token = token;
-        this.userId = "";
         this.buffer = [];
         this.flushInterval = 5000;
         this.maxThreshold = 100;
@@ -135,9 +134,7 @@
         this.initImpressionObserver();
       }
   
-      identify(userId) {
-        this.userId = userId;
-      }
+
   
       // Methods to update predefined meta fields (locale, test, softwareVersion)
       // Note: libVersion is protected and cannot be changed
@@ -222,7 +219,6 @@
         const event = {
           c: this.context,
           type: "track",
-          userId: this.userId,
           t: timestamp, // Use original timestamp
           prop: {
             sg: data.semanticGroup || "global",
@@ -275,7 +271,7 @@
           value = (el.innerText || el.textContent || "").trim() || "text";
         }
   
-        // Create impression event with proper structure and original timestamp
+                // Create impression event with proper structure and original timestamp
         const data = {
           semanticGroup: this.getSemanticGroup(el),
           id: this.generateStableElementId(el),
@@ -283,12 +279,11 @@
           action: action,
           value: value,
         };
-  
+
         // Create event with original timestamp
         const event = {
           c: this.context,
           type: "track",
-          userId: this.userId,
           t: timestamp, // Use original timestamp
           prop: {
             sg: data.semanticGroup,
@@ -305,18 +300,17 @@
         this.flushOrRecord(false);
       }
   
-      // Helper method to add update_metadata event to buffer
+            // Helper method to add update_metadata event to buffer
       addUpdateMetadataEvent() {
         // Ensure libVersion is always present in meta
         const protectedMeta = {
           ...this.meta,
           libVersion: LIB_VERSION,
         };
-  
+
         const event = {
           c: this.context,
           type: "update_metadata",
-          userId: this.userId,
           t: Date.now(),
           prop: {},
           meta: protectedMeta,
@@ -338,18 +332,17 @@
         this.queueOrSendUpdate("additional");
       }
   
-      // Helper method to add update_metadata event to buffer
+            // Helper method to add update_metadata event to buffer
       addUpdateAdditionalMetadataEvent() {
         // Ensure libVersion is always present in meta
         const protectedMeta = {
           ...this.meta,
           libVersion: LIB_VERSION,
         };
-  
+
         const event = {
           c: this.context,
           type: "update_metadata",
-          userId: this.userId,
           t: Date.now(),
           prop: {},
           meta: protectedMeta,
@@ -373,14 +366,13 @@
         }
       }
   
-      track(type, data) {
+            track(type, data) {
         // Update session activity on any tracking event
         this.updateSessionActivity();
-  
+
         const event = {
           c: this.context,
           type: "track",
-          userId: this.userId,
           t: Date.now(),
           prop: {
             sg: data.semanticGroup || "global",
@@ -428,7 +420,6 @@
         const event = {
           c: this.context,
           type: "track",
-          userId: this.userId,
           t: Date.now(),
           prop: {
             sg: data.semanticGroup || "global",
@@ -551,7 +542,6 @@
         const event = {
           c: this.context,
           type: "start_session",
-          userId: this.userId,
           t: Date.now(),
           prop: {},
           meta: protectedMeta,
@@ -1359,7 +1349,6 @@
         const event = {
           c: this.context,
           type: "track",
-          userId: this.userId,
           t: Date.now(),
           prop: {
             sg: "global",
