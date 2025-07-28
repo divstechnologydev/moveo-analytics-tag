@@ -60,6 +60,167 @@
         // Return "unknown" for empty string, null, or undefined
         return pathname && pathname.trim() ? pathname : "unknown";
       }
+
+      getPlatformInfo() {
+        try {
+          // Method 1: Try navigator.userAgentData (modern browsers)
+          if (navigator.userAgentData && navigator.userAgentData.platform) {
+            const platform = navigator.userAgentData.platform;
+            if (platform && platform.trim() !== "") {
+              return platform;
+            }
+          }
+
+          // Method 2: Try navigator.platform (legacy, but still available)
+          if (navigator.platform && navigator.platform.trim() !== "") {
+            return navigator.platform;
+          }
+
+          // Method 3: Parse user agent string for platform detection
+          const userAgent = navigator.userAgent;
+          if (userAgent) {
+            // Windows detection (various versions)
+            if (userAgent.includes("Windows NT")) {
+              return "Windows";
+            }
+            if (userAgent.includes("Windows")) {
+              return "Windows";
+            }
+            
+            // iOS detection (check BEFORE macOS since iOS includes "Mac OS X" in user agent)
+            if (userAgent.includes("iPhone") || userAgent.includes("iPad")) {
+              return "iOS";
+            }
+            
+            // macOS detection
+            if (userAgent.includes("Mac OS X") || userAgent.includes("Macintosh")) {
+              return "macOS";
+            }
+            
+            // Linux detection
+            if (userAgent.includes("Linux")) {
+              return "Linux";
+            }
+            
+            // Android detection
+            if (userAgent.includes("Android")) {
+              return "Android";
+            }
+            
+            // Chrome OS detection
+            if (userAgent.includes("CrOS")) {
+              return "Chrome OS";
+            }
+            
+            // Firefox OS detection
+            if (userAgent.includes("Firefox OS")) {
+              return "Firefox OS";
+            }
+            
+            // BlackBerry detection
+            if (userAgent.includes("BlackBerry")) {
+              return "BlackBerry";
+            }
+          }
+
+          // Method 5: Try to detect from navigator properties
+          if (navigator.appVersion) {
+            const appVersion = navigator.appVersion.toLowerCase();
+            if (appVersion.includes("win")) return "Windows";
+            if (appVersion.includes("mac")) return "macOS";
+            if (appVersion.includes("linux")) return "Linux";
+            if (appVersion.includes("iphone") || appVersion.includes("ipad")) return "iOS";
+            if (appVersion.includes("android")) return "Android";
+          }
+
+          // Final fallback
+          return "Unknown";
+        } catch (error) {
+          // If any error occurs during platform detection, return "Unknown"
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Error during platform detection:", error);
+          }
+          return "Unknown";
+        }
+      }
+
+      getLanguageInfo() {
+        try {
+          // Method 1: Try navigator.language (modern browsers)
+          if (navigator.language && navigator.language.trim() !== "") {
+            return navigator.language;
+          }
+
+          // Method 2: Try navigator.userLanguage (legacy IE)
+          if (navigator.userLanguage && navigator.userLanguage.trim() !== "") {
+            return navigator.userLanguage;
+          }
+
+          // Method 3: Try navigator.languages array
+          if (navigator.languages && navigator.languages.length > 0) {
+            const firstLanguage = navigator.languages[0];
+            if (firstLanguage && firstLanguage.trim() !== "") {
+              return firstLanguage;
+            }
+          }
+
+          // Method 4: Try to extract from user agent
+          const userAgent = navigator.userAgent;
+          if (userAgent) {
+            // Look for language patterns in user agent
+            const langMatch = userAgent.match(/[a-z]{2}-[A-Z]{2}/);
+            if (langMatch) {
+              return langMatch[0];
+            }
+          }
+
+          // Final fallback
+          return "Unknown";
+        } catch (error) {
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Error during language detection:", error);
+          }
+          return "Unknown";
+        }
+      }
+
+      // Robust timezone detection with fallbacks
+      getTimezoneInfo() {
+        try {
+          // Method 1: Try Intl.DateTimeFormat (modern browsers)
+          if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (timezone && timezone.trim() !== "") {
+              return timezone;
+            }
+          }
+
+          // Method 2: Try to get timezone offset and convert to timezone name
+          const offset = new Date().getTimezoneOffset();
+          if (offset !== undefined) {
+            // Convert offset to timezone name
+            const hours = Math.abs(Math.floor(offset / 60));
+            const minutes = Math.abs(offset % 60);
+            const sign = offset <= 0 ? '+' : '-';
+            return `UTC${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          }
+
+          // Method 3: Try to detect from date string
+          const dateString = new Date().toString();
+          const timezoneMatch = dateString.match(/\(([^)]+)\)/);
+          if (timezoneMatch && timezoneMatch[1]) {
+            return timezoneMatch[1];
+          }
+
+          // Final fallback
+          return "Unknown";
+        } catch (error) {
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Error during timezone detection:", error);
+          }
+          return "Unknown";
+        }
+      }
   
       // Get existing session ID or create new one
       getOrCreateSessionId() {
@@ -568,11 +729,11 @@
   
         // All session data goes to additionalMeta
         const sessionData = {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          language: navigator.language || navigator.userLanguage,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          referrer: document.referrer || "",
+          userAgent: navigator.userAgent || "Unknown",
+          platform: this.getPlatformInfo(),
+          language: this.getLanguageInfo(),
+          timezone: this.getTimezoneInfo(),
+          referrer: document.referrer || "Direct",
           returningVisitor: isReturning,
         };
   
