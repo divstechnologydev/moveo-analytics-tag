@@ -628,16 +628,18 @@
         });
       }
   
-      enrichWithGeolocation() {
-        return fetch("https://ipapi.co/json/")
+      enrichWithIpAddress() {
+        return fetch("https://api.moveo.one/api/my-ip")
           .then((response) => response.json())
-          .then((location) => ({
-            // only the country name, as a string
-            location: location.country_name || "",
+          .then((data) => ({
+            // IP address from your own endpoint
+            ipAddress: data.ip || "Unknown",
           }))
           .catch((err) => {
-            console.warn("MoveoOne: Failed to enrich geolocation", err);
-            return { location: "" };
+            if (LOGGING_ENABLED) {
+              console.warn("MoveoOne: Failed to get IP address", err);
+            }
+            return { ipAddress: "Unknown" };
           });
       }
   
@@ -745,8 +747,8 @@
           devicePixelRatio: window.devicePixelRatio || 1,
         };
   
-        // Get geolocation data asynchronously (this is the slow part)
-        const geoData = await this.enrichWithGeolocation();
+        // Get IP address data asynchronously (this is the slow part)
+        const ipData = await this.enrichWithIpAddress();
   
         // Add all additional data to additionalMeta
         event.additionalMeta = {
@@ -754,7 +756,7 @@
           ...utmParams,
           ...sessionData,
           ...screenData,
-          ...geoData,
+          ...ipData,
           title: document.title,
         };
   
