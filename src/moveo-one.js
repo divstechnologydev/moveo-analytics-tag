@@ -277,6 +277,16 @@
       }
   
       initialize() {
+        // Prevent multiple initialize() calls
+        if (this.initialized) {
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Already initialized, ignoring duplicate initialize() call");
+          }
+          return;
+        }
+        
+        this.initialized = true;
+        
         // Start session asynchronously without blocking
         this.start();
   
@@ -644,6 +654,14 @@
       }
   
       async start() {
+        // Prevent multiple start() calls
+        if (this.started) {
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Session already started, ignoring duplicate start() call");
+          }
+          return;
+        }
+        
         // If this is a page navigation, send page_navigation event instead of start_session
         if (this.isPageNavigation) {
           await this.trackPageNavigation();
@@ -2306,6 +2324,14 @@
     // Global initialization function
     window.MoveoOne = {
       init: function (token, options = {}) {
+        // Prevent multiple initializations
+        if (window.MoveoOne.instance) {
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Already initialized, returning existing instance");
+          }
+          return window.MoveoOne.instance;
+        }
+        
         const instance = new MoveoOneWeb(token);
   
         // Define allowed meta fields (libVersion is automatically included and protected)
