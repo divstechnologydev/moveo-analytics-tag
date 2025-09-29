@@ -1131,7 +1131,7 @@
           if (interactiveTags.includes(element.tagName)) {
             let text = element.textContent || element.innerText || "";
             text = text.trim().replace(/\s+/g, " ");
-            return text.length > 100 ? text.substring(0, 97) + "..." : text;
+            return text.length > 150 ? text.substring(0, 147) + "..." : text;
           }
 
           // For text elements, get all text content including children (spans, strong, etc.)
@@ -1139,7 +1139,7 @@
           if (textElementTags.includes(element.tagName)) {
             let text = element.textContent || element.innerText || "";
             text = text.trim().replace(/\s+/g, " ");
-            return text.length > 100 ? text.substring(0, 97) + "..." : text;
+            return text.length > 150 ? text.substring(0, 147) + "..." : text;
           }
 
           // For other elements, get direct text content (not including children)
