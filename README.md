@@ -16,8 +16,6 @@ To install the Moveo One analytics library for web, please follow the instructio
 </script>
 ```
 
-## Advanced Configuration
-
 ### App Version Tracking
 
 You can track your application version by setting it during initialization:
