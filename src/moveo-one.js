@@ -3,7 +3,7 @@
     if (window.MoveoOne) return;
   
     const API_URL = "{{API_URL}}";
-    const LIB_VERSION = "1.0.6"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.8"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -26,6 +26,7 @@
         // Note: libVersion is automatically added and cannot be changed
         this.meta = {
           libVersion: LIB_VERSION, // Always include library version
+          appVersion: null, // User-defined app version
         };
   
         // Additional metadata - flexible key-value pairs
@@ -321,11 +322,7 @@
         this.queueOrSendUpdate("meta");
       }
   
-      setSoftwareVersion(version) {
-        this.meta.softwareVersion = version;
-        this.meta.libVersion = LIB_VERSION; // Ensure libVersion is always present
-        this.queueOrSendUpdate("meta");
-      }
+
   
       // Helper method to queue updates before session starts or send immediately
       queueOrSendUpdate(type) {
@@ -2335,7 +2332,7 @@
         const instance = new MoveoOneWeb(token);
   
         // Define allowed meta fields (libVersion is automatically included and protected)
-        const allowedMetaFields = ["locale", "test", "softwareVersion"];
+        const allowedMetaFields = ["locale", "test", "appVersion"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
@@ -2351,9 +2348,9 @@
                   instance.meta.test = options[key];
                 }
                 break;
-              case "softwareVersion":
+              case "appVersion":
                 if (typeof options[key] === "string") {
-                  instance.meta.softwareVersion = options[key];
+                  instance.meta.appVersion = options[key];
                 }
                 break;
             }
@@ -2382,6 +2379,8 @@
       getLibVersion: function () {
         return LIB_VERSION;
       },
+
+
     };
   })(window);
   
