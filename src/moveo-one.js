@@ -1503,7 +1503,8 @@
         const textElementTags = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"];
         const childElementTags = ["SPAN", "STRONG", "EM", "B", "I", "U", "SMALL", "MARK", "DEL", "INS", "SUB", "SUP"];
         
-        if (childElementTags.includes(element.tagName)) {
+        // Check if this element should be skipped due to parent text elements
+        if (childElementTags.includes(element.tagName) || textElementTags.includes(element.tagName)) {
           let parent = element.parentElement;
           while (parent && parent !== document.body) {
             if (textElementTags.includes(parent.tagName)) {
