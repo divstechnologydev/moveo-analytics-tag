@@ -20,7 +20,7 @@ To install the Moveo One analytics library for web, please follow the instructio
 
 ### App Version Tracking
 
-You can track your application version by setting it during initialization or updating it dynamically:
+You can track your application version by setting it during initialization:
 
 ```html
 <script>
@@ -28,9 +28,6 @@ You can track your application version by setting it during initialization or up
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
     appVersion: '1.0.0'
   });
-  
-  // Update app version later (e.g., after app update)
-  MoveoOne.setAppVersion('1.1.0');
 </script>
 ```
 
@@ -46,27 +43,5 @@ You can track your application version by setting it during initialization or up
 </script>
 ```
 
-### Available Methods
 
-- `MoveoOne.init(token, options)` - Initialize the analytics library
-- `MoveoOne.setAppVersion(version)` - Update app version globally
-- `MoveoOne.getInstance()` - Get the current instance
-- `MoveoOne.getLibVersion()` - Get the library version (read-only)
 
-### Version Bump Workflow
-
-When your application updates, you can bump the version to track the change:
-
-```html
-<script>
-  // Initialize
-  const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
-    appVersion: '1.0.0'
-  });
-  
-  // Later, when your app updates
-  MoveoOne.setAppVersion('1.1.0');
-  
-  // The version change will be tracked in analytics
-</script>
-``` 

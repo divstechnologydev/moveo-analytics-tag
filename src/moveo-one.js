@@ -2380,16 +2380,6 @@
         return LIB_VERSION;
       },
 
-      // Method to set app version globally
-      setAppVersion: function (version) {
-        if (window.MoveoOne.instance) {
-          window.MoveoOne.instance.meta.appVersion = version;
-          window.MoveoOne.instance.meta.libVersion = LIB_VERSION; // Ensure libVersion is always present
-          window.MoveoOne.instance.queueOrSendUpdate("meta");
-        } else {
-          console.warn("MoveoOne: Instance not initialized. Call MoveoOne.init() first.");
-        }
-      },
 
       // Method to get the current instance
       getInstance: function () {
