@@ -26,6 +26,7 @@
         // Note: libVersion is automatically added and cannot be changed
         this.meta = {
           libVersion: LIB_VERSION, // Always include library version
+          appVersion: null, // User-defined app version
         };
   
         // Additional metadata - flexible key-value pairs
@@ -321,11 +322,7 @@
         this.queueOrSendUpdate("meta");
       }
   
-      setSoftwareVersion(version) {
-        this.meta.softwareVersion = version;
-        this.meta.libVersion = LIB_VERSION; // Ensure libVersion is always present
-        this.queueOrSendUpdate("meta");
-      }
+
   
       // Helper method to queue updates before session starts or send immediately
       queueOrSendUpdate(type) {
@@ -2335,7 +2332,7 @@
         const instance = new MoveoOneWeb(token);
   
         // Define allowed meta fields (libVersion is automatically included and protected)
-        const allowedMetaFields = ["locale", "test", "softwareVersion"];
+        const allowedMetaFields = ["locale", "test", "appVersion"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
@@ -2351,9 +2348,9 @@
                   instance.meta.test = options[key];
                 }
                 break;
-              case "softwareVersion":
+              case "appVersion":
                 if (typeof options[key] === "string") {
-                  instance.meta.softwareVersion = options[key];
+                  instance.meta.appVersion = options[key];
                 }
                 break;
             }
@@ -2381,6 +2378,22 @@
       // Getter method to expose the library version (read-only)
       getLibVersion: function () {
         return LIB_VERSION;
+      },
+
+      // Method to set app version globally
+      setAppVersion: function (version) {
+        if (window.MoveoOne.instance) {
+          window.MoveoOne.instance.meta.appVersion = version;
+          window.MoveoOne.instance.meta.libVersion = LIB_VERSION; // Ensure libVersion is always present
+          window.MoveoOne.instance.queueOrSendUpdate("meta");
+        } else {
+          console.warn("MoveoOne: Instance not initialized. Call MoveoOne.init() first.");
+        }
+      },
+
+      // Method to get the current instance
+      getInstance: function () {
+        return window.MoveoOne.instance;
       },
     };
   })(window);
