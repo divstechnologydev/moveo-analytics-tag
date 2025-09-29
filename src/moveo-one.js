@@ -3,7 +3,7 @@
     if (window.MoveoOne) return;
   
     const API_URL = "{{API_URL}}";
-    const LIB_VERSION = "1.0.8"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.9"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -1133,7 +1133,15 @@
             text = text.trim().replace(/\s+/g, " ");
             return text.length > 100 ? text.substring(0, 97) + "..." : text;
           }
-  
+
+          // For text elements, get all text content including children (spans, strong, etc.)
+          const textElementTags = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"];
+          if (textElementTags.includes(element.tagName)) {
+            let text = element.textContent || element.innerText || "";
+            text = text.trim().replace(/\s+/g, " ");
+            return text.length > 100 ? text.substring(0, 97) + "..." : text;
+          }
+
           // For other elements, get direct text content (not including children)
           let text = "";
   
@@ -1207,7 +1215,15 @@
             text = text.trim().replace(/\s+/g, " ");
             return text;
           }
-  
+
+          // For text elements, get all text content including children (spans, strong, etc.)
+          const textElementTags = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"];
+          if (textElementTags.includes(element.tagName)) {
+            let text = element.textContent || element.innerText || "";
+            text = text.trim().replace(/\s+/g, " ");
+            return text;
+          }
+
           // For other elements, get direct text content (not including children)
           let text = "";
   
@@ -1482,7 +1498,21 @@
         // Skip if element is part of tracking infrastructure
         if (element.id && element.id.includes("moveo")) return false;
         if (element.className && element.className.includes("moveo")) return false;
-  
+
+        // Skip child elements when parent is a text element (to avoid duplicate tracking)
+        const textElementTags = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"];
+        const childElementTags = ["SPAN", "STRONG", "EM", "B", "I", "U", "SMALL", "MARK", "DEL", "INS", "SUB", "SUP"];
+        
+        if (childElementTags.includes(element.tagName)) {
+          let parent = element.parentElement;
+          while (parent && parent !== document.body) {
+            if (textElementTags.includes(parent.tagName)) {
+              return false; // Skip child element if parent is a text element
+            }
+            parent = parent.parentElement;
+          }
+        }
+
         return true;
       }
   
