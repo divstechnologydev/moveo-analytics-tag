@@ -3,7 +3,7 @@
     if (window.MoveoOne) return;
   
     const API_URL = "{{API_URL}}";
-    const LIB_VERSION = "1.0.6"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.8"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
