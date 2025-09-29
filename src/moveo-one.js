@@ -2381,10 +2381,6 @@
       },
 
 
-      // Method to get the current instance
-      getInstance: function () {
-        return window.MoveoOne.instance;
-      },
     };
   })(window);
   
