@@ -1131,12 +1131,20 @@
           if (interactiveTags.includes(element.tagName)) {
             let text = element.textContent || element.innerText || "";
             text = text.trim().replace(/\s+/g, " ");
-            return text.length > 100 ? text.substring(0, 97) + "..." : text;
+            return text.length > 150 ? text.substring(0, 147) + "..." : text;
           }
-  
+
+          // For text container elements, get all text content including children
+          const textContainerTags = ["P", "LI", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "PRE", "DD", "DT", "TD", "TH"];
+          if (textContainerTags.includes(element.tagName)) {
+            let text = element.textContent || element.innerText || "";
+            text = text.trim().replace(/\s+/g, " ");
+            return text.length > 150 ? text.substring(0, 147) + "..." : text;
+          }
+
           // For other elements, get direct text content (not including children)
           let text = "";
-  
+
           // Safe iteration over childNodes
           if (element.childNodes && element.childNodes.length > 0) {
             for (let i = 0; i < element.childNodes.length; i++) {
@@ -1150,7 +1158,7 @@
               }
             }
           }
-  
+
           // Clean and limit the text (for ID generation purposes)
           text = text.trim().replace(/\s+/g, " ");
           return text.length > 100 ? text.substring(0, 97) + "..." : text;
@@ -1207,10 +1215,18 @@
             text = text.trim().replace(/\s+/g, " ");
             return text;
           }
-  
+
+          // For text container elements, get all text content including children
+          const textContainerTags = ["P", "LI", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "PRE", "DD", "DT", "TD", "TH"];
+          if (textContainerTags.includes(element.tagName)) {
+            let text = element.textContent || element.innerText || "";
+            text = text.trim().replace(/\s+/g, " ");
+            return text;
+          }
+
           // For other elements, get direct text content (not including children)
           let text = "";
-  
+
           // Safe iteration over childNodes
           if (element.childNodes && element.childNodes.length > 0) {
             for (let i = 0; i < element.childNodes.length; i++) {
@@ -1224,7 +1240,7 @@
               }
             }
           }
-  
+
           // Clean the text but don't limit length (for event data)
           text = text.trim().replace(/\s+/g, " ");
           return text;
@@ -1424,7 +1440,7 @@
           "TITLE",
         ];
         if (skipTags.includes(element.tagName)) return false;
-  
+
         // Define interactive elements
         const interactiveTags = [
           "BUTTON",
@@ -1450,10 +1466,10 @@
           "radio",
           "switch"
         ];
-  
+
         const isInteractive = interactiveTags.includes(element.tagName) || 
                              (element.getAttribute && interactiveRoles.includes(element.getAttribute('role')));
-  
+
         // For interactive elements, be more lenient with visibility checks
         if (isInteractive) {
           // Skip if element is part of tracking infrastructure
@@ -1470,20 +1486,69 @@
           // This ensures buttons like "OK", "Cancel", etc. are always tracked
           return true;
         }
-  
+
         // For non-interactive elements, use strict visibility check
         const rect = element.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return false;
-  
+
         // For non-interactive elements, check for meaningful content
         const text = this.getElementText(element);
         if (!text || text.length < 1) return false;
-  
+
         // Skip if element is part of tracking infrastructure
         if (element.id && element.id.includes("moveo")) return false;
         if (element.className && element.className.includes("moveo")) return false;
-  
+
+        // Check if this is a small text element that should be excluded
+        if (this.isSmallTextElement(element) && this.hasTextContainerParent(element)) {
+          return false;
+        }
+
+        // Check if this is a text container element that should be excluded (nested in another text container)
+        if (this.isTextContainerElement(element) && this.hasTextContainerParent(element)) {
+          return false;
+        }
+
         return true;
+      }
+
+      // Helper method to identify small text elements
+      isSmallTextElement(element) {
+        const smallTextTags = [
+          "SPAN", "EM", "STRONG", "I", "B", "U", "S", "SMALL", "MARK", "DEL", "INS", "SUB", "SUP", "CODE", "KBD", "SAMP", "VAR", "CITE", "ABBR", "TIME", "DATA"
+        ];
+        return smallTextTags.includes(element.tagName);
+      }
+
+      // Helper method to identify text container elements
+      isTextContainerElement(element) {
+        const textContainerTags = [
+          "P", "LI", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "PRE", "DD", "DT", "TD", "TH"
+        ];
+        return textContainerTags.includes(element.tagName);
+      }
+
+      // Helper method to check if element has a text container parent
+      hasTextContainerParent(element) {
+        const textContainerTags = [
+          "P", "LI", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "PRE", "DD", "DT", "TD", "TH"
+        ];
+        
+        let current = element.parentElement;
+        while (current && current !== document.body) {
+          // Check if current element is a text container
+          if (textContainerTags.includes(current.tagName)) {
+            // Verify it has meaningful text content
+            const parentText = this.getElementText(current);
+            if (parentText && parentText.trim().length > 0) {
+              return true;
+            }
+          }
+          
+          current = current.parentElement;
+        }
+        
+        return false;
       }
   
       // Enhanced hover tracking for all elements with text
