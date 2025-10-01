@@ -41,5 +41,121 @@ You can track your application version by setting it during initialization:
 </script>
 ```
 
+## Prediction API
 
+The MoveoOne library includes a prediction method that allows you to get real-time predictions from your trained models.
+
+### Basic Usage
+
+```javascript
+// Initialize MoveoOne first
+MoveoOne.init('YOUR_TOKEN_HERE');
+
+// Get prediction from a model
+MoveoOne.predict('your-model-id')
+  .then(result => {
+    if (result.success) {
+      console.log('Prediction probability:', result.prediction_probability);
+      console.log('Binary result:', result.prediction_binary);
+    } else {
+      console.log('Error:', result.message);
+    }
+  })
+  .catch(error => {
+    console.error('Unexpected error:', error);
+  });
+```
+
+## Response Examples
+
+### Success Response
+
+```javascript
+{
+  success: true,
+  status: 'success',
+  model_id: 'your-model-id',
+  prediction_probability: 0.85,
+  prediction_binary: true
+}
+```
+
+### Error Responses
+
+#### Not Initialized
+```javascript
+{
+  success: false,
+  status: 'not_initialized',
+  message: 'MoveoOne must be initialized before using predict method. Call MoveoOne.init() first.'
+}
+```
+
+#### Invalid Model ID
+```javascript
+{
+  success: false,
+  status: 'invalid_model_id',
+  message: 'Model ID is required and must be a non-empty string'
+}
+```
+
+#### Model Loading/Validating (Pending State)
+```javascript
+{
+  success: true,
+  status: 'pending',
+  message: 'Model is loading, please try again',
+  model_id: 'your-model-id'
+}
+```
+
+#### Model Not Found
+```javascript
+{
+  success: false,
+  status: 'not_found',
+  message: 'Model not found or not accessible',
+  model_id: 'your-model-id'
+}
+```
+
+#### Server Error
+```javascript
+{
+  success: false,
+  status: 'server_error',
+  message: 'Server error processing prediction request',
+  model_id: 'your-model-id'
+}
+```
+
+#### Network Error
+```javascript
+{
+  success: false,
+  status: 'network_error',
+  message: 'Network error - please check your connection',
+  model_id: 'your-model-id'
+}
+```
+
+#### Timeout
+```javascript
+{
+  success: false,
+  status: 'timeout',
+  message: 'Request timed out after 10 seconds',
+  model_id: 'your-model-id'
+}
+```
+
+## Notes
+
+- The `predict` method is **non-blocking** and won't affect your website's performance
+- All requests have a 10-second timeout to prevent hanging
+- The method automatically uses the current session ID from the MoveoOne instance
+- **202 responses are normal pending states** - models may need time to load or validate
+- The method returns a Promise, so you can use async/await or .then()/.catch()
+- Check both `success: true` and `status: 'success'` to ensure you have a complete prediction
 

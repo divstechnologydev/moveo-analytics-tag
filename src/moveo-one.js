@@ -2342,31 +2342,31 @@
       generateGlobalEventId(eventType, additionalData = {}) {
         // Create a unique identifier based on event type and additional data
         let uniqueKey = eventType;
-  
+
         // Add additional data to make it more unique
         if (additionalData.path) {
           uniqueKey += `_${this.hashString(additionalData.path)}`;
         }
-  
+
         if (additionalData.value) {
           uniqueKey += `_${this.hashString(additionalData.value)}`;
         }
-  
+
         if (additionalData.action) {
           uniqueKey += `_${additionalData.action}`;
         }
-  
+
         // For page-specific events, include the current path
         if (eventType === "page_view" || eventType === "viewport_size") {
           const currentPath = this.getCurrentPath();
           uniqueKey += `_${this.hashString(currentPath)}`;
         }
-  
+
         // For scroll events, include scroll percentage
         if (eventType === "scroll" && additionalData.scrollPercentage) {
           uniqueKey += `_${additionalData.scrollPercentage}`;
         }
-  
+
         // For viewport resize events, include dimensions
         if (
           eventType === "viewport_resize" &&
@@ -2375,12 +2375,143 @@
         ) {
           uniqueKey += `_${additionalData.width}x${additionalData.height}`;
         }
-  
+
         // Create final hash to ensure consistent length
         const finalHash = this.hashString(uniqueKey);
-  
+
         // Return with event type prefix for clarity
         return `${eventType}_${finalHash}`;
+      }
+
+      // Internal predict method with comprehensive error handling
+      async internalPredict(modelId, sessionId) {
+        try {
+          // Validate inputs
+          if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+            throw new Error('Model ID is required and must be a non-empty string');
+          }
+
+          if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
+            throw new Error('Session ID is required and must be a non-empty string');
+          }
+
+          // Construct the API endpoint
+          const endpoint = `${DOLPHIN_URL}/api/models/${encodeURIComponent(modelId.trim())}/predict`;
+          
+          // Prepare the request payload
+          const requestPayload = {
+            session_id: sessionId.trim()
+          };
+
+          // Make the HTTP request with timeout and error handling
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': this.token
+            },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          // Handle different response status codes
+          if (response.status === 202) {
+            // Model is loading or validating - this is a normal pending state, not an error
+            const responseData = await response.json();
+            return {
+              success: true,
+              status: 'pending',
+              message: responseData.message || 'Model is loading, please try again',
+              model_id: responseData.model_id || modelId
+            };
+          }
+
+          if (response.status === 404) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'not_found',
+              message: errorData.detail || `Model '${modelId}' not found or not accessible`,
+              model_id: modelId
+            };
+          }
+
+          if (response.status === 422) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'invalid_data',
+              message: errorData.detail || 'Invalid prediction data',
+              model_id: modelId
+            };
+          }
+
+          if (response.status === 500) {
+            return {
+              success: false,
+              status: 'server_error',
+              message: 'Server error processing prediction request',
+              model_id: modelId
+            };
+          }
+
+          if (!response.ok) {
+            return {
+              success: false,
+              status: 'error',
+              message: `Request failed with status ${response.status}`,
+              model_id: modelId
+            };
+          }
+
+          // Parse successful response
+          const predictionData = await response.json();
+          
+          return {
+            success: true,
+            status: 'success',
+            model_id: predictionData.model_id || modelId,
+            prediction_probability: predictionData.prediction_probability,
+            prediction_binary: predictionData.prediction_binary
+          };
+
+        } catch (error) {
+          // Handle different types of errors
+          if (error.name === 'AbortError') {
+            return {
+              success: false,
+              status: 'timeout',
+              message: 'Request timed out after 10 seconds',
+              model_id: modelId
+            };
+          }
+
+          if (error instanceof TypeError && error.message.includes('fetch')) {
+            return {
+              success: false,
+              status: 'network_error',
+              message: 'Network error - please check your connection',
+              model_id: modelId
+            };
+          }
+
+          // Log unexpected errors in development
+          if (LOGGING_ENABLED) {
+            console.error('MoveoOne: Unexpected error in predict method:', error);
+          }
+
+          return {
+            success: false,
+            status: 'error',
+            message: 'An unexpected error occurred',
+            model_id: modelId
+          };
+        }
       }
     }
   
@@ -2446,6 +2577,41 @@
         return LIB_VERSION;
       },
 
+      // Global predict method - can only be called after initialization
+      predict: function (modelId) {
+        // Check if MoveoOne has been initialized
+        if (!window.MoveoOne.instance) {
+          return Promise.resolve({
+            success: false,
+            status: 'not_initialized',
+            message: 'MoveoOne must be initialized before using predict method. Call MoveoOne.init() first.'
+          });
+        }
+
+        // Validate modelId parameter
+        if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+          return Promise.resolve({
+            success: false,
+            status: 'invalid_model_id',
+            message: 'Model ID is required and must be a non-empty string'
+          });
+        }
+
+        // Get the current session ID from the instance
+        const sessionId = window.MoveoOne.instance.sessionId;
+        
+        if (!sessionId) {
+          return Promise.resolve({
+            success: false,
+            status: 'no_session',
+            message: 'No active session found. Please ensure MoveoOne is properly initialized.'
+          });
+        }
+
+        // Call the internal predict method asynchronously
+        // This is non-blocking and won't affect website performance
+        return window.MoveoOne.instance.internalPredict(modelId.trim(), sessionId);
+      }
 
     };
   })(window);
