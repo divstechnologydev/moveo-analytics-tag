@@ -140,17 +140,15 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'timeout',
-  message: 'Request timed out after 10 seconds'
+  message: 'Request timed out after 5 seconds'
 }
 ```
 
 ## Notes
 
 - The `predict` method is **non-blocking** and won't affect your website's performance
-- All requests have a 10-second timeout to prevent hanging
+- All requests have a 5-second timeout to prevent hanging
 - The method automatically uses the current session ID from the MoveoOne instance
 - **202 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()
 - Check `success: true` for complete predictions (only when `status: 'success'`)
-- Check `success: false` with `status: 'pending'` to retry the request
-
