@@ -157,7 +157,7 @@ MoveoOne.predict('your-model-id')
 
 - The `predict` method is **non-blocking** and won't affect your website's performance
 - All requests have a 100-millisecond timeout to prevent hanging
-- The method automatically uses the current session ID from the MoveoOne instance
+- The method automatically uses the current session ID and sends all buffered events to the prediction service
 - **202 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()
 - Check `success: true` for complete predictions (only when `status: 'success'`)

@@ -2398,8 +2398,9 @@
           // Construct the API endpoint
           const endpoint = `${DOLPHIN_URL}/api/models/${encodeURIComponent(modelId.trim())}/predict`;
           
-          // Prepare the request payload
+          // Prepare the request payload with events from current buffer
           const requestPayload = {
+            events: [...this.buffer],
             session_id: sessionId.trim()
           };
 
