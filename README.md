@@ -74,7 +74,6 @@ MoveoOne.predict('your-model-id')
 {
   success: true,
   status: 'success',
-  model_id: 'your-model-id',
   prediction_probability: 0.85,
   prediction_binary: true
 }
@@ -103,10 +102,9 @@ MoveoOne.predict('your-model-id')
 #### Model Loading/Validating (Pending State)
 ```javascript
 {
-  success: true,
+  success: false,
   status: 'pending',
-  message: 'Model is loading, please try again',
-  model_id: 'your-model-id'
+  message: 'Model is loading, please try again'
 }
 ```
 
@@ -115,8 +113,7 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'not_found',
-  message: 'Model not found or not accessible',
-  model_id: 'your-model-id'
+  message: 'Model not found or not accessible'
 }
 ```
 
@@ -125,8 +122,7 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'server_error',
-  message: 'Server error processing prediction request',
-  model_id: 'your-model-id'
+  message: 'Server error processing prediction request'
 }
 ```
 
@@ -135,8 +131,7 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'network_error',
-  message: 'Network error - please check your connection',
-  model_id: 'your-model-id'
+  message: 'Network error - please check your connection'
 }
 ```
 
@@ -145,8 +140,7 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'timeout',
-  message: 'Request timed out after 10 seconds',
-  model_id: 'your-model-id'
+  message: 'Request timed out after 10 seconds'
 }
 ```
 
@@ -157,5 +151,6 @@ MoveoOne.predict('your-model-id')
 - The method automatically uses the current session ID from the MoveoOne instance
 - **202 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()
-- Check both `success: true` and `status: 'success'` to ensure you have a complete prediction
+- Check `success: true` for complete predictions (only when `status: 'success'`)
+- Check `success: false` with `status: 'pending'` to retry the request
 

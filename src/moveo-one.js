@@ -2421,13 +2421,12 @@
 
           // Handle different response status codes
           if (response.status === 202) {
-            // Model is loading or validating - this is a normal pending state, not an error
+            // Model is loading or validating - client needs to retry
             const responseData = await response.json();
             return {
-              success: true,
+              success: false,
               status: 'pending',
-              message: responseData.message || 'Model is loading, please try again',
-              model_id: responseData.model_id || modelId
+              message: responseData.message || 'Model is loading, please try again'
             };
           }
 
@@ -2436,8 +2435,7 @@
             return {
               success: false,
               status: 'not_found',
-              message: errorData.detail || `Model '${modelId}' not found or not accessible`,
-              model_id: modelId
+              message: errorData.detail || `Model '${modelId}' not found or not accessible`
             };
           }
 
@@ -2446,8 +2444,7 @@
             return {
               success: false,
               status: 'invalid_data',
-              message: errorData.detail || 'Invalid prediction data',
-              model_id: modelId
+              message: errorData.detail || 'Invalid prediction data'
             };
           }
 
@@ -2455,8 +2452,7 @@
             return {
               success: false,
               status: 'server_error',
-              message: 'Server error processing prediction request',
-              model_id: modelId
+              message: 'Server error processing prediction request'
             };
           }
 
@@ -2464,8 +2460,7 @@
             return {
               success: false,
               status: 'error',
-              message: `Request failed with status ${response.status}`,
-              model_id: modelId
+              message: `Request failed with status ${response.status}`
             };
           }
 
@@ -2475,7 +2470,6 @@
           return {
             success: true,
             status: 'success',
-            model_id: predictionData.model_id || modelId,
             prediction_probability: predictionData.prediction_probability,
             prediction_binary: predictionData.prediction_binary
           };
@@ -2486,8 +2480,7 @@
             return {
               success: false,
               status: 'timeout',
-              message: 'Request timed out after 10 seconds',
-              model_id: modelId
+              message: 'Request timed out after 10 seconds'
             };
           }
 
@@ -2495,8 +2488,7 @@
             return {
               success: false,
               status: 'network_error',
-              message: 'Network error - please check your connection',
-              model_id: modelId
+              message: 'Network error - please check your connection'
             };
           }
 
@@ -2508,8 +2500,7 @@
           return {
             success: false,
             status: 'error',
-            message: 'An unexpected error occurred',
-            model_id: modelId
+            message: 'An unexpected error occurred'
           };
         }
       }
