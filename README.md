@@ -117,6 +117,15 @@ MoveoOne.predict('your-model-id')
 }
 ```
 
+#### Conflict Error
+```javascript
+{
+  success: false,
+  status: 'conflict',
+  message: 'Model conflict or resource already exists'
+}
+```
+
 #### Server Error
 ```javascript
 {

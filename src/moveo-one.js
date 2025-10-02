@@ -2439,6 +2439,15 @@
             };
           }
 
+          if (response.status === 409) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'conflict',
+              message: errorData.detail || 'Conditional event not found'
+            };
+          }
+
           if (response.status === 422) {
             const errorData = await response.json().catch(() => ({}));
             return {
