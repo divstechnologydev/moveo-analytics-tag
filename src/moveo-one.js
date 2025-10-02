@@ -2405,7 +2405,7 @@
 
           // Make the HTTP request with timeout and error handling
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 100); // 100 millisecond timeout
 
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -2489,7 +2489,7 @@
             return {
               success: false,
               status: 'timeout',
-              message: 'Request timed out after 5 seconds'
+              message: 'Request timed out after 100 milliseconds'
             };
           }
 
