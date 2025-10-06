@@ -26,7 +26,6 @@
         // Note: libVersion is automatically added and cannot be changed
         this.meta = {
           libVersion: LIB_VERSION, // Always include library version
-          appVersion: null, // User-defined app version
         };
   
         // Additional metadata - flexible key-value pairs
@@ -324,6 +323,17 @@
   
 
   
+      // Helper method to filter out null values from meta object
+      filterNullMetaValues(meta) {
+        const filtered = {};
+        Object.keys(meta).forEach(key => {
+          if (meta[key] !== null && meta[key] !== undefined) {
+            filtered[key] = meta[key];
+          }
+        });
+        return filtered;
+      }
+
       // Helper method to queue updates before session starts or send immediately
       queueOrSendUpdate(type) {
         if (this.started) {
@@ -470,11 +480,11 @@
   
             // Helper method to add update_metadata event to buffer
       addUpdateMetadataEvent() {
-        // Ensure libVersion is always present in meta
-        const protectedMeta = {
+        // Ensure libVersion is always present in meta and filter out null values
+        const protectedMeta = this.filterNullMetaValues({
           ...this.meta,
           libVersion: LIB_VERSION,
-        };
+        });
 
         const event = {
           c: this.context,
@@ -502,11 +512,11 @@
   
             // Helper method to add update_metadata event to buffer
       addUpdateAdditionalMetadataEvent() {
-        // Ensure libVersion is always present in meta
-        const protectedMeta = {
+        // Ensure libVersion is always present in meta and filter out null values
+        const protectedMeta = this.filterNullMetaValues({
           ...this.meta,
           libVersion: LIB_VERSION,
-        };
+        });
 
         const event = {
           c: this.context,
@@ -711,12 +721,12 @@
         }
   
         // This is a genuinely new session
-        // Ensure libVersion is always present in meta
-        const protectedMeta = {
+        // Ensure libVersion is always present in meta and filter out null values
+        const protectedMeta = this.filterNullMetaValues({
           ...this.meta,
           libVersion: LIB_VERSION,
-        };
-  
+        });
+
         const event = {
           c: this.context,
           type: "start_session",
