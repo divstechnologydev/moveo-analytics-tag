@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.9"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.11"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -289,6 +289,9 @@
         
         this.initialized = true;
         
+        // Pre-establish connection to prediction service for faster first predict request
+        this.preconnectToPredictionService();
+        
         // Start session asynchronously without blocking
         this.start();
   
@@ -305,6 +308,105 @@
   
         // Initialize impression tracking immediately (no longer waits for session)
         this.initImpressionObserver();
+      }
+
+      // Pre-establish connection to prediction service for faster first predict request
+      preconnectToPredictionService() {
+        try {
+          // Extract domain from DOLPHIN_URL for preconnect
+          const dolphinUrl = new URL(DOLPHIN_URL);
+          const preconnectUrl = `${dolphinUrl.protocol}//${dolphinUrl.host}`;
+          
+          // Create DNS prefetch link for faster DNS resolution
+          const dnsPrefetchLink = document.createElement('link');
+          dnsPrefetchLink.rel = 'dns-prefetch';
+          dnsPrefetchLink.href = preconnectUrl;
+          document.head.appendChild(dnsPrefetchLink);
+          
+          // Create preconnect link element for full connection establishment
+          const preconnectLink = document.createElement('link');
+          preconnectLink.rel = 'preconnect';
+          preconnectLink.href = preconnectUrl;
+          preconnectLink.crossOrigin = 'anonymous';
+          
+          // Add to head to establish connection early
+          document.head.appendChild(preconnectLink);
+          
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: DNS prefetch and preconnect established for prediction service:', preconnectUrl);
+          }
+        } catch (error) {
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Failed to establish preconnect:', error);
+          }
+        }
+      }
+
+      // Warm up the prediction service with a lightweight request (ZERO performance impact)
+      async warmupPredictionService() {
+        // Only warmup if we have a session ID (after initialization)
+        if (!this.sessionId) {
+          // Retry after a short delay when session is ready
+          setTimeout(() => this.warmupPredictionService(), 100);
+          return;
+        }
+
+        try {
+          // Use the confirmed health endpoint
+          const healthEndpoint = `${DOLPHIN_URL}/health`;
+          
+          // Record timing for performance monitoring
+          const warmupStartTime = performance.now();
+          
+          // Use requestIdleCallback for zero performance impact (fallback to setTimeout)
+          const scheduleWarmup = (asyncCallback) => {
+            if (window.requestIdleCallback) {
+              window.requestIdleCallback(asyncCallback, { timeout: 1000 });
+            } else {
+              setTimeout(asyncCallback, 0);
+            }
+          };
+
+          scheduleWarmup(async () => {
+            try {
+              const response = await fetch(healthEndpoint, {
+                method: 'GET', // Use GET instead of HEAD for better connection establishment
+                headers: {
+                  'Authorization': this.token
+                },
+                fetchpriority: 'low', // Low priority to not interfere with other requests
+                keepalive: true, // Keep connection alive for reuse
+                signal: AbortSignal.timeout(2000) // 2 second timeout to prevent hanging
+              });
+
+              const warmupTime = performance.now() - warmupStartTime;
+              if (LOGGING_ENABLED) {
+                console.log(`MoveoOne: Warmup successful - ${response.status} in ${warmupTime.toFixed(1)}ms for ${healthEndpoint}`);
+              }
+              
+              // Mark warmup as completed for future predict requests
+              this.warmupCompleted = true;
+              this.warmupTime = warmupTime;
+            } catch (error) {
+              const warmupTime = performance.now() - warmupStartTime;
+              if (LOGGING_ENABLED) {
+                console.warn(`MoveoOne: Warmup failed after ${warmupTime.toFixed(1)}ms:`, error.message);
+              }
+              
+              // Mark warmup as failed but don't retry to avoid performance impact
+              this.warmupCompleted = false;
+            }
+          });
+
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: Prediction service warmup scheduled (zero performance impact)');
+          }
+        } catch (error) {
+          // Silently fail - warmup is optional
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Warmup scheduling failed:', error);
+          }
+        }
       }
   
 
@@ -664,6 +766,10 @@
         if (this.isPageNavigation) {
           await this.trackPageNavigation();
           this.started = true;
+          
+          // Optionally warm up the prediction service (lightweight request with zero performance impact)
+          this.warmupPredictionService();
+          
           this.processPendingUpdates();
           this.processPendingImpressions(); // ✅ Process any pending impressions
           this.processPendingImmediateEvents(); // ✅ Process any pending immediate events
@@ -678,6 +784,10 @@
         // If this is an existing session (session ID was reused), don't send start_session
         if (this.isExistingSession) {
           this.started = true;
+          
+          // Optionally warm up the prediction service (lightweight request with zero performance impact)
+          this.warmupPredictionService();
+          
           this.processPendingUpdates();
           this.processPendingImpressions(); // ✅ Process any pending impressions
           this.processPendingImmediateEvents(); // ✅ Process any pending immediate events
@@ -784,6 +894,9 @@
   
         this.buffer.push(event);
         this.started = true; // Set started to true after adding start_session event
+  
+        // Optionally warm up the prediction service (lightweight request with zero performance impact)
+        this.warmupPredictionService();
   
         // Process any pending updates that were queued before session started
         this.processPendingUpdates();
