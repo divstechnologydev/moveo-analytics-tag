@@ -5,7 +5,7 @@
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
     const LIB_VERSION = "1.0.9"; // Constant library version - cannot be changed by client
-    const LOGGING_ENABLED = true; // Enable/disable console logging
+    const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
      * Core MoveoOne Web Tracker
