@@ -149,15 +149,25 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'timeout',
-  message: 'Request timed out after 150 milliseconds'
+  message: 'Request timed out after 300 milliseconds'
 }
 ```
+
+## Performance Optimizations
+
+The library includes several optimizations to make predict requests as fast as possible:
+
+- **High Priority Requests**: Predict requests use `fetchpriority="high"` to jump ahead of other network traffic
+- **DNS Prefetch**: Automatically prefetches DNS for the prediction service during initialization
+- **Preconnect**: Establishes TCP/TLS connections early to eliminate connection setup time
+- **Connection Warmup**: Makes a lightweight request to warm up the server connection
 
 ## Notes
 
 - The `predict` method is **non-blocking** and won't affect your website's performance
-- All requests have a 150-millisecond timeout to prevent hanging
+- All requests have a 300-millisecond timeout to prevent hanging
 - The method automatically uses the current session ID and sends all buffered events to the prediction service
 - **202 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()
 - Check `success: true` for complete predictions (only when `status: 'success'`)
+- **First request optimization**: Connection establishment happens during library initialization, making the first predict request much faster

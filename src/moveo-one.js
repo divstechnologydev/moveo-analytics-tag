@@ -2,10 +2,10 @@
     // Prevent multiple initializations
     if (window.MoveoOne) return;
   
-    const API_URL = "{{API_URL}}";
-    const DOLPHIN_URL = "{{DOLPHIN_URL}}";
+    const API_URL = "https://dev-api.moveo.one/api/analytic/event/tag";
+   const DOLPHIN_URL = "https://dolphin-dev-978019819001.europe-west1.run.app";
     const LIB_VERSION = "1.0.9"; // Constant library version - cannot be changed by client
-    const LOGGING_ENABLED = false; // Enable/disable console logging
+    const LOGGING_ENABLED = true; // Enable/disable console logging
   
     /**
      * Core MoveoOne Web Tracker
@@ -277,6 +277,115 @@
         const timestampKey = "moveo-session-timestamp";
         localStorage.setItem(timestampKey, Date.now().toString());
       }
+
+      // Pre-establish connection to prediction service for faster first predict request
+      preconnectToPredictionService() {
+        try {
+          // Extract domain from DOLPHIN_URL for preconnect
+          const dolphinUrl = new URL(DOLPHIN_URL);
+          const preconnectUrl = `${dolphinUrl.protocol}//${dolphinUrl.host}`;
+          
+          // Create DNS prefetch link for faster DNS resolution
+          const dnsPrefetchLink = document.createElement('link');
+          dnsPrefetchLink.rel = 'dns-prefetch';
+          dnsPrefetchLink.href = preconnectUrl;
+          document.head.appendChild(dnsPrefetchLink);
+          
+          // Create preconnect link element for full connection establishment
+          const preconnectLink = document.createElement('link');
+          preconnectLink.rel = 'preconnect';
+          preconnectLink.href = preconnectUrl;
+          preconnectLink.crossOrigin = 'anonymous';
+          
+          // Add to head to establish connection early
+          document.head.appendChild(preconnectLink);
+          
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: DNS prefetch and preconnect established for prediction service:', preconnectUrl);
+          }
+        } catch (error) {
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Failed to establish preconnect:', error);
+          }
+        }
+      }
+
+      // Warm up the prediction service with a lightweight request
+      warmupPredictionService() {
+        // Only warmup if we have a session ID (after initialization)
+        if (!this.sessionId) {
+          // Retry after a short delay when session is ready
+          setTimeout(() => this.warmupPredictionService(), 100);
+          return;
+        }
+
+        try {
+          // Try multiple potential warmup endpoints
+          const warmupEndpoints = [
+            `${DOLPHIN_URL}/health`,
+            `${DOLPHIN_URL}/api/health`,
+            `${DOLPHIN_URL}/ping`,
+            `${DOLPHIN_URL}/status`
+          ];
+
+          // Try the first endpoint (health)
+          const endpoint = warmupEndpoints[0];
+          
+          fetch(endpoint, {
+            method: 'HEAD',
+            headers: {
+              'Authorization': this.token
+            },
+            fetchpriority: 'low' // Low priority to not interfere with other requests
+          }).then(response => {
+            if (LOGGING_ENABLED) {
+              console.log(`MoveoOne: Warmup response status: ${response.status} for ${endpoint}`);
+            }
+          }).catch(error => {
+            if (LOGGING_ENABLED) {
+              console.log(`MoveoOne: Warmup failed for ${endpoint}, trying alternatives...`);
+            }
+            
+            // Try alternative endpoints if health fails
+            this.tryAlternativeWarmupEndpoints(warmupEndpoints.slice(1));
+          });
+
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: Prediction service warmup initiated');
+          }
+        } catch (error) {
+          // Silently fail - warmup is optional
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Warmup failed:', error);
+          }
+        }
+      }
+
+      // Try alternative warmup endpoints
+      tryAlternativeWarmupEndpoints(endpoints) {
+        if (endpoints.length === 0) {
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: All warmup endpoints failed, skipping warmup');
+          }
+          return;
+        }
+
+        const endpoint = endpoints[0];
+        fetch(endpoint, {
+          method: 'HEAD',
+          headers: {
+            'Authorization': this.token
+          },
+          fetchpriority: 'low'
+        }).then(response => {
+          if (LOGGING_ENABLED) {
+            console.log(`MoveoOne: Alternative warmup successful: ${response.status} for ${endpoint}`);
+          }
+        }).catch(() => {
+          // Try next endpoint
+          this.tryAlternativeWarmupEndpoints(endpoints.slice(1));
+        });
+      }
   
       initialize() {
         // Prevent multiple initialize() calls
@@ -288,6 +397,12 @@
         }
         
         this.initialized = true;
+        
+        // Pre-establish connection to prediction service for faster first predict request
+        this.preconnectToPredictionService();
+        
+        // Optionally warm up the prediction service (lightweight request)
+        this.warmupPredictionService();
         
         // Start session asynchronously without blocking
         this.start();
@@ -2406,7 +2521,7 @@
 
           // Make the HTTP request with timeout and error handling
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 150); // 150 millisecond timeout
+          const timeoutId = setTimeout(() => controller.abort(), 300); // 300 millisecond timeout
 
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -2415,7 +2530,8 @@
               'Authorization': this.token
             },
             body: JSON.stringify(requestPayload),
-            signal: controller.signal
+            signal: controller.signal,
+            fetchpriority: 'high' // Prioritize predict requests over other network requests
           });
 
           clearTimeout(timeoutId);
@@ -2490,7 +2606,7 @@
             return {
               success: false,
               status: 'timeout',
-              message: 'Request timed out after 150 milliseconds'
+              message: 'Request timed out after 300 milliseconds'
             };
           }
 
