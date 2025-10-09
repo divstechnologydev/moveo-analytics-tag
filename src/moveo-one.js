@@ -2,8 +2,8 @@
     // Prevent multiple initializations
     if (window.MoveoOne) return;
   
-    const API_URL = "{{API_URL}}";
-    const DOLPHIN_URL = "{{DOLPHIN_URL}}";
+    const API_URL = "https://dev-api.moveo.one/api/analytic/event/tag";
+    const DOLPHIN_URL = "https://dolphin-dev-978019819001.europe-west1.run.app";
     const LIB_VERSION = "1.0.11"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
@@ -32,6 +32,9 @@
   
         // Additional metadata - flexible key-value pairs
         this.additionalMeta = {};
+
+        // Latency tracking configuration
+        this.calculateLatency = true; // Default to true
   
         // Track viewport size for resize events
         this.currentViewport = {
@@ -2496,8 +2499,49 @@
         return `${eventType}_${finalHash}`;
       }
 
+      // Async method to send latency data to prediction-latency endpoint
+      async sendLatencyData(modelId, sessionId, totalExecutionTimeMs) {
+        try {
+          const latencyEndpoint = `${DOLPHIN_URL}/api/prediction-latency`;
+          
+          const latencyPayload = {
+            model_id: modelId,
+            session_id: sessionId,
+            client: "tag",
+            total_execution_time_ms: totalExecutionTimeMs,
+            latency_data: {} // Empty object as requested
+          };
+
+          // Send latency data asynchronously without affecting client performance
+          fetch(latencyEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': this.token
+            },
+            body: JSON.stringify(latencyPayload),
+            keepalive: true, // Ensure request completes even if page unloads
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+          }).catch((error) => {
+            // Silently handle errors to not affect client performance
+            if (LOGGING_ENABLED) {
+              console.warn('MoveoOne: Failed to send latency data:', error);
+            }
+          });
+
+        } catch (error) {
+          // Silently handle errors to not affect client performance
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Error in latency tracking:', error);
+          }
+        }
+      }
+
       // Internal predict method with comprehensive error handling
       async internalPredict(modelId, sessionId) {
+        // Start timing for latency tracking
+        const startTime = performance.now();
+        
         try {
           // Validate inputs
           if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
@@ -2519,7 +2563,7 @@
 
           // Make the HTTP request with timeout and error handling
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 300); // 300 millisecond timeout
+          const timeoutId = setTimeout(() => controller.abort(), 400); // 400 millisecond timeout
 
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -2591,6 +2635,17 @@
           // Parse successful response
           const predictionData = await response.json();
           
+          // Calculate total execution time
+          const totalExecutionTimeMs = Math.round(performance.now() - startTime);
+          
+          // Send latency data asynchronously if enabled (non-blocking)
+          if (this.calculateLatency) {
+            // Use setTimeout to ensure this doesn't block the response
+            setTimeout(() => {
+              this.sendLatencyData(modelId.trim(), sessionId.trim(), totalExecutionTimeMs);
+            }, 0);
+          }
+          
           return {
             success: true,
             status: 'success',
@@ -2604,7 +2659,7 @@
             return {
               success: false,
               status: 'timeout',
-              message: 'Request timed out after 300 milliseconds'
+              message: 'Request timed out after 400 milliseconds'
             };
           }
 
@@ -2644,7 +2699,7 @@
         const instance = new MoveoOneWeb(token);
   
         // Define allowed meta fields (libVersion is automatically included and protected)
-        const allowedMetaFields = ["locale", "test", "appVersion"];
+        const allowedMetaFields = ["locale", "test", "appVersion", "calculateLatency"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
@@ -2663,6 +2718,11 @@
               case "appVersion":
                 if (typeof options[key] === "string") {
                   instance.meta.appVersion = options[key];
+                }
+                break;
+              case "calculateLatency":
+                if (typeof options[key] === "boolean") {
+                  instance.calculateLatency = options[key];
                 }
                 break;
             }

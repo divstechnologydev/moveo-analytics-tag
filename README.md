@@ -36,7 +36,7 @@ You can track your application version by setting it during initialization:
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
     appVersion: '1.0.0',        // Your app version
     locale: 'en-US',            // User locale
-    test: 'false'               // Test mode flag
+    test: 'false',              // Test mode flag
   });
 </script>
 ```
@@ -149,7 +149,7 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'timeout',
-  message: 'Request timed out after 300 milliseconds'
+  message: 'Request timed out after 400 milliseconds'
 }
 ```
 
@@ -165,9 +165,30 @@ The library includes several optimizations to make predict requests as fast as p
 ## Notes
 
 - The `predict` method is **non-blocking** and won't affect your website's performance
-- All requests have a 300-millisecond timeout to prevent hanging
+- All requests have a 400-millisecond timeout to prevent hanging
 - The method automatically uses the current session ID and sends all buffered events to the prediction service
 - **202 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()
 - Check `success: true` for complete predictions (only when `status: 'success'`)
 - **First request optimization**: Connection establishment happens during library initialization, making the first predict request much faster
+
+## Latency Tracking
+
+The library automatically tracks prediction request latency when `calculateLatency` is enabled (default: true). This feature:
+
+- **Non-blocking**: Latency tracking happens asynchronously and doesn't affect prediction response time
+- **Automatic**: Tracks execution time from request start to response completion
+- **Silent**: Errors in latency tracking are handled silently and won't impact your application
+- **Performance-focused**: Uses browser timing APIs for accurate measurements
+
+### Disabling Latency Tracking
+
+To disable latency tracking:
+
+```html
+<script>
+  const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
+    calculateLatency: false
+  });
+</script>
+```
