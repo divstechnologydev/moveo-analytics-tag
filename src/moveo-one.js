@@ -2654,8 +2654,18 @@
           };
 
         } catch (error) {
+          // Calculate total execution time for error cases
+          const totalExecutionTimeMs = Math.round(performance.now() - startTime);
+          
           // Handle different types of errors
           if (error.name === 'AbortError') {
+            // Send latency data for timeout errors if enabled (non-blocking)
+            if (this.calculateLatency) {
+              setTimeout(() => {
+                this.sendLatencyData(modelId.trim(), sessionId.trim(), totalExecutionTimeMs);
+              }, 0);
+            }
+            
             return {
               success: false,
               status: 'timeout',
