@@ -126,6 +126,15 @@ MoveoOne.predict('your-model-id')
 }
 ```
 
+#### Target Already Reached
+```javascript
+{
+  success: false,
+  status: 'target_already_reached',
+  message: 'Completion target already reached - prediction not applicable'
+}
+```
+
 #### Server Error
 ```javascript
 {

@@ -2609,6 +2609,15 @@
 
           if (response.status === 422) {
             const errorData = await response.json().catch(() => ({}));
+            
+            if (errorData.detail && errorData.detail.includes('Completion target already reached')) {
+              return {
+                success: false,
+                status: 'target_already_reached',
+                message: 'Completion target already reached - prediction not applicable'
+              };
+            }
+            
             return {
               success: false,
               status: 'invalid_data',
