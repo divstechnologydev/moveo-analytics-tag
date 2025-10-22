@@ -34,8 +34,10 @@ jobs:
       
     - name: Replace environment variables and minify
       run: |
-        # Replace API_URL placeholder with development URL
-        sed 's|{{API_URL}}|${{ secrets.DEV_API_URL }}|g' src/moveo-one.js > src/moveo-one-temp.js
+        # Replace API_URL and DOLPHIN_URL placeholders with development URLs
+        sed -e 's|{{API_URL}}|${{ secrets.DEV_API_URL }}|g' \
+            -e 's|{{DOLPHIN_URL}}|${{ secrets.DEV_DOLPHIN_URL }}|g' \
+            src/moveo-one.js > src/moveo-one-temp.js
         
         # Minify the file
         terser src/moveo-one-temp.js -c -m -o dist/moveo-one-script.min.js

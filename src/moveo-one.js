@@ -3,7 +3,8 @@
     if (window.MoveoOne) return;
   
     const API_URL = "{{API_URL}}";
-    const LIB_VERSION = "1.0.9"; // Constant library version - cannot be changed by client
+    const DOLPHIN_URL = "{{DOLPHIN_URL}}";
+    const LIB_VERSION = "1.0.11"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -30,6 +31,9 @@
   
         // Additional metadata - flexible key-value pairs
         this.additionalMeta = {};
+
+        // Latency tracking configuration
+        this.calculateLatency = true; // Default to true
   
         // Track viewport size for resize events
         this.currentViewport = {
@@ -287,6 +291,9 @@
         
         this.initialized = true;
         
+        // Pre-establish connection to prediction service for faster first predict request
+        this.preconnectToPredictionService();
+        
         // Start session asynchronously without blocking
         this.start();
   
@@ -303,6 +310,105 @@
   
         // Initialize impression tracking immediately (no longer waits for session)
         this.initImpressionObserver();
+      }
+
+      // Pre-establish connection to prediction service for faster first predict request
+      preconnectToPredictionService() {
+        try {
+          // Extract domain from DOLPHIN_URL for preconnect
+          const dolphinUrl = new URL(DOLPHIN_URL);
+          const preconnectUrl = `${dolphinUrl.protocol}//${dolphinUrl.host}`;
+          
+          // Create DNS prefetch link for faster DNS resolution
+          const dnsPrefetchLink = document.createElement('link');
+          dnsPrefetchLink.rel = 'dns-prefetch';
+          dnsPrefetchLink.href = preconnectUrl;
+          document.head.appendChild(dnsPrefetchLink);
+          
+          // Create preconnect link element for full connection establishment
+          const preconnectLink = document.createElement('link');
+          preconnectLink.rel = 'preconnect';
+          preconnectLink.href = preconnectUrl;
+          preconnectLink.crossOrigin = 'anonymous';
+          
+          // Add to head to establish connection early
+          document.head.appendChild(preconnectLink);
+          
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: DNS prefetch and preconnect established for prediction service:', preconnectUrl);
+          }
+        } catch (error) {
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Failed to establish preconnect:', error);
+          }
+        }
+      }
+
+      // Warm up the prediction service with a lightweight request (ZERO performance impact)
+      async warmupPredictionService() {
+        // Only warmup if we have a session ID (after initialization)
+        if (!this.sessionId) {
+          // Retry after a short delay when session is ready
+          setTimeout(() => this.warmupPredictionService(), 100);
+          return;
+        }
+
+        try {
+          // Use the confirmed health endpoint
+          const healthEndpoint = `${DOLPHIN_URL}/health`;
+          
+          // Record timing for performance monitoring
+          const warmupStartTime = performance.now();
+          
+          // Use requestIdleCallback for zero performance impact (fallback to setTimeout)
+          const scheduleWarmup = (asyncCallback) => {
+            if (window.requestIdleCallback) {
+              window.requestIdleCallback(asyncCallback, { timeout: 1000 });
+            } else {
+              setTimeout(asyncCallback, 0);
+            }
+          };
+
+          scheduleWarmup(async () => {
+            try {
+              const response = await fetch(healthEndpoint, {
+                method: 'GET', // Use GET instead of HEAD for better connection establishment
+                headers: {
+                  'Authorization': this.token
+                },
+                fetchpriority: 'low', // Low priority to not interfere with other requests
+                keepalive: true, // Keep connection alive for reuse
+                signal: AbortSignal.timeout(2000) // 2 second timeout to prevent hanging
+              });
+
+              const warmupTime = performance.now() - warmupStartTime;
+              if (LOGGING_ENABLED) {
+                console.log(`MoveoOne: Warmup successful - ${response.status} in ${warmupTime.toFixed(1)}ms for ${healthEndpoint}`);
+              }
+              
+              // Mark warmup as completed for future predict requests
+              this.warmupCompleted = true;
+              this.warmupTime = warmupTime;
+            } catch (error) {
+              const warmupTime = performance.now() - warmupStartTime;
+              if (LOGGING_ENABLED) {
+                console.warn(`MoveoOne: Warmup failed after ${warmupTime.toFixed(1)}ms:`, error.message);
+              }
+              
+              // Mark warmup as failed but don't retry to avoid performance impact
+              this.warmupCompleted = false;
+            }
+          });
+
+          if (LOGGING_ENABLED) {
+            console.log('MoveoOne: Prediction service warmup scheduled (zero performance impact)');
+          }
+        } catch (error) {
+          // Silently fail - warmup is optional
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Warmup scheduling failed:', error);
+          }
+        }
       }
   
 
@@ -673,6 +779,10 @@
         if (this.isPageNavigation) {
           await this.trackPageNavigation();
           this.started = true;
+          
+          // Optionally warm up the prediction service (lightweight request with zero performance impact)
+          this.warmupPredictionService();
+          
           this.processPendingUpdates();
           this.processPendingImpressions(); // ✅ Process any pending impressions
           this.processPendingImmediateEvents(); // ✅ Process any pending immediate events
@@ -687,6 +797,10 @@
         // If this is an existing session (session ID was reused), don't send start_session
         if (this.isExistingSession) {
           this.started = true;
+          
+          // Optionally warm up the prediction service (lightweight request with zero performance impact)
+          this.warmupPredictionService();
+          
           this.processPendingUpdates();
           this.processPendingImpressions(); // ✅ Process any pending impressions
           this.processPendingImmediateEvents(); // ✅ Process any pending immediate events
@@ -793,6 +907,9 @@
   
         this.buffer.push(event);
         this.started = true; // Set started to true after adding start_session event
+  
+        // Optionally warm up the prediction service (lightweight request with zero performance impact)
+        this.warmupPredictionService();
   
         // Process any pending updates that were queued before session started
         this.processPendingUpdates();
@@ -2351,31 +2468,31 @@
       generateGlobalEventId(eventType, additionalData = {}) {
         // Create a unique identifier based on event type and additional data
         let uniqueKey = eventType;
-  
+
         // Add additional data to make it more unique
         if (additionalData.path) {
           uniqueKey += `_${this.hashString(additionalData.path)}`;
         }
-  
+
         if (additionalData.value) {
           uniqueKey += `_${this.hashString(additionalData.value)}`;
         }
-  
+
         if (additionalData.action) {
           uniqueKey += `_${additionalData.action}`;
         }
-  
+
         // For page-specific events, include the current path
         if (eventType === "page_view" || eventType === "viewport_size") {
           const currentPath = this.getCurrentPath();
           uniqueKey += `_${this.hashString(currentPath)}`;
         }
-  
+
         // For scroll events, include scroll percentage
         if (eventType === "scroll" && additionalData.scrollPercentage) {
           uniqueKey += `_${additionalData.scrollPercentage}`;
         }
-  
+
         // For viewport resize events, include dimensions
         if (
           eventType === "viewport_resize" &&
@@ -2384,12 +2501,216 @@
         ) {
           uniqueKey += `_${additionalData.width}x${additionalData.height}`;
         }
-  
+
         // Create final hash to ensure consistent length
         const finalHash = this.hashString(uniqueKey);
-  
+
         // Return with event type prefix for clarity
         return `${eventType}_${finalHash}`;
+      }
+
+      // Async method to send latency data to prediction-latency endpoint
+      async sendLatencyData(modelId, sessionId, totalExecutionTimeMs) {
+        try {
+          const latencyEndpoint = `${DOLPHIN_URL}/api/prediction-latency`;
+          
+          const latencyPayload = {
+            model_id: modelId,
+            session_id: sessionId,
+            client: "tag",
+            total_execution_time_ms: totalExecutionTimeMs,
+            latency_data: {} // Empty object as requested
+          };
+
+          // Send latency data asynchronously without affecting client performance
+          fetch(latencyEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': this.token
+            },
+            body: JSON.stringify(latencyPayload),
+            keepalive: true, // Ensure request completes even if page unloads
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+          }).catch((error) => {
+            // Silently handle errors to not affect client performance
+            if (LOGGING_ENABLED) {
+              console.warn('MoveoOne: Failed to send latency data:', error);
+            }
+          });
+
+        } catch (error) {
+          // Silently handle errors to not affect client performance
+          if (LOGGING_ENABLED) {
+            console.warn('MoveoOne: Error in latency tracking:', error);
+          }
+        }
+      }
+
+      // Internal predict method with comprehensive error handling
+      async internalPredict(modelId, sessionId) {
+        // Start timing for latency tracking
+        const startTime = performance.now();
+        
+        try {
+          // Validate inputs
+          if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+            throw new Error('Model ID is required and must be a non-empty string');
+          }
+
+          if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
+            throw new Error('Session ID is required and must be a non-empty string');
+          }
+
+          // Construct the API endpoint
+          const endpoint = `${DOLPHIN_URL}/api/models/${encodeURIComponent(modelId.trim())}/predict`;
+          
+          // Prepare the request payload with events from current buffer
+          const requestPayload = {
+            events: [...this.buffer],
+            session_id: sessionId.trim()
+          };
+
+          // Make the HTTP request with timeout and error handling
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 400); // 400 millisecond timeout
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': this.token
+            },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal,
+            fetchpriority: 'high' // Prioritize predict requests over other network requests
+          });
+
+          clearTimeout(timeoutId);
+
+          // Handle different response status codes
+          if (response.status === 202) {
+            // Model is loading or validating - client needs to retry
+            const responseData = await response.json();
+            return {
+              success: false,
+              status: 'pending',
+              message: responseData.message || 'Model is loading, please try again'
+            };
+          }
+
+          if (response.status === 404) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'not_found',
+              message: errorData.detail || `Model '${modelId}' not found or not accessible`
+            };
+          }
+
+          if (response.status === 409) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'conflict',
+              message: errorData.detail || 'Conditional event not found'
+            };
+          }
+
+          if (response.status === 422) {
+            const errorData = await response.json().catch(() => ({}));
+            
+            if (errorData.detail && errorData.detail.includes('Completion target already reached')) {
+              return {
+                success: false,
+                status: 'target_already_reached',
+                message: 'Completion target already reached - prediction not applicable'
+              };
+            }
+            
+            return {
+              success: false,
+              status: 'invalid_data',
+              message: errorData.detail || 'Invalid prediction data'
+            };
+          }
+
+          if (response.status === 500) {
+            return {
+              success: false,
+              status: 'server_error',
+              message: 'Server error processing prediction request'
+            };
+          }
+
+          if (!response.ok) {
+            return {
+              success: false,
+              status: 'error',
+              message: `Request failed with status ${response.status}`
+            };
+          }
+
+          // Parse successful response
+          const predictionData = await response.json();
+          
+          // Calculate total execution time
+          const totalExecutionTimeMs = Math.round(performance.now() - startTime);
+          
+          // Send latency data asynchronously if enabled (non-blocking)
+          if (this.calculateLatency) {
+            // Use setTimeout to ensure this doesn't block the response
+            setTimeout(() => {
+              this.sendLatencyData(modelId.trim(), sessionId.trim(), totalExecutionTimeMs);
+            }, 0);
+          }
+          
+          return {
+            success: true,
+            status: 'success',
+            prediction_probability: predictionData.prediction_probability,
+            prediction_binary: predictionData.prediction_binary
+          };
+
+        } catch (error) {
+          // Calculate total execution time for error cases
+          const totalExecutionTimeMs = Math.round(performance.now() - startTime);
+          
+          // Handle different types of errors
+          if (error.name === 'AbortError') {
+            // Send latency data for timeout errors if enabled (non-blocking)
+            if (this.calculateLatency) {
+              setTimeout(() => {
+                this.sendLatencyData(modelId.trim(), sessionId.trim(), totalExecutionTimeMs);
+              }, 0);
+            }
+            
+            return {
+              success: false,
+              status: 'timeout',
+              message: 'Request timed out after 400 milliseconds'
+            };
+          }
+
+          if (error instanceof TypeError && error.message.includes('fetch')) {
+            return {
+              success: false,
+              status: 'network_error',
+              message: 'Network error - please check your connection'
+            };
+          }
+
+          // Log unexpected errors in development
+          if (LOGGING_ENABLED) {
+            console.error('MoveoOne: Unexpected error in predict method:', error);
+          }
+
+          return {
+            success: false,
+            status: 'error',
+            message: 'An unexpected error occurred'
+          };
+        }
       }
     }
   
@@ -2407,7 +2728,7 @@
         const instance = new MoveoOneWeb(token);
   
         // Define allowed meta fields (libVersion is automatically included and protected)
-        const allowedMetaFields = ["locale", "test", "appVersion"];
+        const allowedMetaFields = ["locale", "test", "appVersion", "calculateLatency"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
@@ -2426,6 +2747,11 @@
               case "appVersion":
                 if (typeof options[key] === "string") {
                   instance.meta.appVersion = options[key];
+                }
+                break;
+              case "calculateLatency":
+                if (typeof options[key] === "boolean") {
+                  instance.calculateLatency = options[key];
                 }
                 break;
             }
@@ -2455,6 +2781,41 @@
         return LIB_VERSION;
       },
 
+      // Global predict method - can only be called after initialization
+      predict: function (modelId) {
+        // Check if MoveoOne has been initialized
+        if (!window.MoveoOne.instance) {
+          return Promise.resolve({
+            success: false,
+            status: 'not_initialized',
+            message: 'MoveoOne must be initialized before using predict method. Call MoveoOne.init() first.'
+          });
+        }
+
+        // Validate modelId parameter
+        if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+          return Promise.resolve({
+            success: false,
+            status: 'invalid_model_id',
+            message: 'Model ID is required and must be a non-empty string'
+          });
+        }
+
+        // Get the current session ID from the instance
+        const sessionId = window.MoveoOne.instance.sessionId;
+        
+        if (!sessionId) {
+          return Promise.resolve({
+            success: false,
+            status: 'no_session',
+            message: 'No active session found. Please ensure MoveoOne is properly initialized.'
+          });
+        }
+
+        // Call the internal predict method asynchronously
+        // This is non-blocking and won't affect website performance
+        return window.MoveoOne.instance.internalPredict(modelId.trim(), sessionId);
+      }
 
     };
   })(window);
