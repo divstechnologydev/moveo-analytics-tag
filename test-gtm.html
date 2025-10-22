@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoveoOne GTM Test</title>
+    
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-5SZTDMGZ');</script>
+    <!-- End Google Tag Manager -->
+</head>
+<body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5SZTDMGZ"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    <h1>MoveoOne GTM Test</h1>
+    <p>This page tests MoveoOne with Google Tag Manager.</p>
+    
+    <div id="status">Loading...</div>
+    <div id="console-output"></div>
+    
+    <button id="test-button">Test Button</button>
+    <a href="https://example.com" id="test-link">Test Link</a>
+    
+    <form id="test-form">
+        <input type="text" placeholder="Test input" />
+        <button type="submit">Submit</button>
+    </form>
+    
+    <div id="test-div">
+        <p>This is a test paragraph for impression tracking.</p>
+    </div>
+
+    <!-- NO MoveoOne code here! -->
+    <!-- GTM will inject the MoveoOne code when the tag fires -->
+    <!-- This test file only contains GTM snippet + test functions -->
+
+    <script>
+        // Test functions
+        function addToConsole(message) {
+            const output = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += '<div>[' + timestamp + '] ' + message + '</div>';
+            console.log(message);
+        }
+
+        function testGTM() {
+            addToConsole('Testing GTM setup...');
+            
+            // Check if GTM loaded
+            if (typeof dataLayer !== 'undefined') {
+                addToConsole('✅ GTM dataLayer is available');
+                
+                // Check if GTM container loaded
+                if (typeof google_tag_manager !== 'undefined') {
+                    addToConsole('✅ GTM container loaded');
+                } else {
+                    addToConsole('⚠️ GTM container not found');
+                }
+                
+                // Check if MoveoOne tag fired (this will be injected by GTM)
+                setTimeout(function() {
+                    if (typeof window.MoveoOne !== 'undefined') {
+                        addToConsole('✅ MoveoOne tag fired and loaded');
+                        
+                        if (window.MoveoOne.instance) {
+                            addToConsole('✅ MoveoOne is initialized by GTM');
+                            document.getElementById('status').innerHTML = '✅ GTM + MoveoOne working!';
+                        } else {
+                            addToConsole('⚠️ MoveoOne loaded but not initialized');
+                            document.getElementById('status').innerHTML = '⚠️ MoveoOne loaded but not initialized';
+                        }
+                    } else {
+                        addToConsole('❌ MoveoOne tag did not fire - check GTM configuration');
+                        document.getElementById('status').innerHTML = '❌ MoveoOne tag not fired';
+                    }
+                }, 3000); // Wait 3 seconds for GTM to load and fire tags
+                
+            } else {
+                addToConsole('❌ GTM dataLayer not found');
+                document.getElementById('status').innerHTML = '❌ GTM not loaded';
+            }
+        }
+
+        // Test on page load
+        window.addEventListener('load', function() {
+            addToConsole('Page loaded');
+            setTimeout(testGTM, 1000); // Wait 1 second for GTM to initialize
+        });
+
+        // Monitor GTM dataLayer events
+        if (typeof dataLayer !== 'undefined') {
+            const originalPush = dataLayer.push;
+            dataLayer.push = function() {
+                addToConsole('GTM Event: ' + JSON.stringify(arguments[0]));
+                return originalPush.apply(dataLayer, arguments);
+            };
+        }
+    </script>
+</body>
+</html>

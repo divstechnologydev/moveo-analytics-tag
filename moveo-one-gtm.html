@@ -1,7 +1,9 @@
+<!-- GTM Custom HTML Tag - MoveoOne Analytics -->
+<script>
 (function (window) {
     // Prevent multiple initializations
     if (window.MoveoOne) return;
-
+    
     const API_URL = "https://dev-api.moveo.one/api/analytic/event/tag";
     const DOLPHIN_URL = "https://dolphin-prod-229920351162.europe-west1.run.app";
     const LIB_VERSION = "1.0.11"; // Constant library version - cannot be changed by client
@@ -57,7 +59,18 @@
         // Start flush interval
         setInterval(() => this.flush(), this.flushInterval);
       }
-  
+
+      // [PASTE ALL YOUR METHODS FROM LINES 61-2714 HERE]
+      // Copy everything from getCurrentPath() to internalPredict() method
+      // This includes all the tracking methods, event handlers, etc.
+
+      // Helper method to get reliable path
+      getCurrentPath() {
+        const pathname = window.location.pathname;
+        // Return "unknown" for empty string, null, or undefined
+        return pathname && pathname.trim() ? pathname : "unknown";
+      }
+
       // Helper method to get reliable path
       getCurrentPath() {
         const pathname = window.location.pathname;
@@ -225,7 +238,19 @@
           return "Unknown";
         }
       }
-  
+
+      // Generate UUID for session IDs
+      generateUUID() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+            /[xy]/g,
+            function (c) {
+                const r = (Math.random() * 16) | 0;
+                const v = c === "x" ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            }
+        );
+      }
+
       // Get existing session ID or create new one
       getOrCreateSessionId() {
         const storageKey = "moveo-session-id";
@@ -2818,5 +2843,15 @@
       }
 
     };
-  })(window);
-  
+})(window);
+</script>
+
+<script>
+// Initialize MoveoOne with GTM variables
+// Only token is required, others are optional with defaults
+MoveoOne.init('{{MoveoOne Token}}', {
+    appVersion: '1.0.0',  // Default version
+    locale: 'en-US',      // Default locale
+    test: 'false'         // Default test mode
+});
+</script>
