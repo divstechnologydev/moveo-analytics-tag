@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoveoOne GTM Template Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .video-container {
+            margin: 20px 0;
+        }
+        video {
+            width: 100%;
+            max-width: 500px;
+        }
+        .tracking-info {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .console-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-54GBH7FP');</script>
+    <!-- End Google Tag Manager -->
+
+    <h1>MoveoOne GTM Template Test Page</h1>
+    
+    <div class="tracking-info">
+        <h3>🔍 Testing Instructions</h3>
+        <ol>
+            <li>Open browser Developer Tools (F12)</li>
+            <li>Go to Console tab</li>
+            <li>Interact with elements below to test tracking</li>
+            <li>Check console for MoveoOne logs</li>
+            <li>Verify GTM tag fires correctly</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Page View & Scroll Tracking</h3>
+        <p>This page should automatically track page views and scroll events.</p>
+        <p>Scroll down to test scroll tracking...</p>
+        <div style="height: 500px; background: linear-gradient(to bottom, #f0f0f0, #e0e0e0); padding: 20px; margin: 20px 0;">
+            <h4>Scroll Test Area</h4>
+            <p>This is a tall section to test scroll tracking. Scroll up and down to see scroll events in the console.</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+            <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🖱️ Click Tracking</h3>
+        <p>Click these buttons to test click tracking:</p>
+        <button onclick="testClick('primary-button')">Primary Button</button>
+        <button onclick="testClick('secondary-button')">Secondary Button</button>
+        <button onclick="testClick('cta-button')">Call to Action</button>
+        
+        <h4>Links</h4>
+        <a href="#" onclick="testClick('internal-link')">Internal Link</a> |
+        <a href="https://example.com" target="_blank" onclick="testClick('external-link')">External Link</a>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Form Tracking</h3>
+        <form id="test-form">
+            <label>Name:</label>
+            <input type="text" id="name" placeholder="Enter your name">
+            
+            <label>Email:</label>
+            <input type="email" id="email" placeholder="Enter your email">
+            
+            <label>Message:</label>
+            <textarea id="message" placeholder="Enter your message"></textarea>
+            
+            <button type="submit" onclick="testClick('form-submit')">Submit Form</button>
+        </form>
+    </div>
+
+    <div class="test-section">
+        <h3>🎥 Media Tracking</h3>
+        <div class="video-container">
+            <video id="test-video" controls width="500">
+                <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <p>Play, pause, and complete the video to test media tracking.</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Hover Tracking</h3>
+        <p>Hover over these elements to test hover tracking:</p>
+        <div style="background: #e0e0e0; padding: 20px; margin: 10px 0; border-radius: 5px;">
+            <h4>Hover Test Area</h4>
+            <p>Hover over this section to test hover tracking.</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Impression Tracking</h3>
+        <p>These elements should be tracked when they come into view:</p>
+        <div style="height: 200px; background: #f0f8ff; padding: 20px; margin: 20px 0; border-radius: 5px;">
+            <h4>Impression Test Element 1</h4>
+            <p>This element should trigger an impression event when it comes into view.</p>
+        </div>
+        <div style="height: 200px; background: #fff8f0; padding: 20px; margin: 20px 0; border-radius: 5px;">
+            <h4>Impression Test Element 2</h4>
+            <p>This element should also trigger an impression event when it comes into view.</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📱 Viewport Resize Tracking</h3>
+        <p>Resize your browser window to test viewport resize tracking.</p>
+        <p>Current viewport size: <span id="viewport-size"></span></p>
+    </div>
+
+    <div class="test-section">
+        <h3>🤖 Prediction API Test</h3>
+        <p>Test the MoveoOne prediction API (if enabled):</p>
+        <button onclick="testPrediction()">Test Prediction</button>
+        <div id="prediction-result" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Console Output</h3>
+        <p>Check this area for MoveoOne tracking logs:</p>
+        <div class="console-output" id="console-output">
+            <div>Console output will appear here...</div>
+        </div>
+        <button onclick="clearConsole()">Clear Console</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 Debug Information</h3>
+        <p>MoveoOne Debug Info:</p>
+        <div id="debug-info" style="background: #f9f9f9; padding: 15px; border-radius: 5px;">
+            <p><strong>MoveoOne Available:</strong> <span id="moveo-available">Checking...</span></p>
+            <p><strong>Session ID:</strong> <span id="session-id">Checking...</span></p>
+            <p><strong>Library Version:</strong> <span id="lib-version">Checking...</span></p>
+            <p><strong>Prediction API:</strong> <span id="prediction-api">Checking...</span></p>
+        </div>
+        <button onclick="updateDebugInfo()">Refresh Debug Info</button>
+    </div>
+
+    <script>
+        // Test functions
+        function testClick(elementId) {
+            console.log('Test click on:', elementId);
+            // MoveoOne will automatically track this click
+        }
+
+        function testPrediction() {
+            const resultDiv = document.getElementById('prediction-result');
+            resultDiv.innerHTML = 'Testing prediction...';
+            
+            if (window.moveoPredict) {
+                window.moveoPredict('test-model-id')
+                    .then(result => {
+                        resultDiv.innerHTML = '<strong>Prediction Result:</strong><br>' + JSON.stringify(result, null, 2);
+                        console.log('Prediction result:', result);
+                    })
+                    .catch(error => {
+                        resultDiv.innerHTML = '<strong>Prediction Error:</strong><br>' + error.message;
+                        console.error('Prediction error:', error);
+                    });
+            } else {
+                resultDiv.innerHTML = '<strong>Error:</strong> Prediction API not available. Make sure MoveoOne is loaded and prediction is enabled.';
+            }
+        }
+
+        function clearConsole() {
+            document.getElementById('console-output').innerHTML = '<div>Console cleared...</div>';
+        }
+
+        function updateDebugInfo() {
+            // Check if MoveoOne is available
+            document.getElementById('moveo-available').textContent = window.MoveoOne ? 'Yes' : 'No';
+            
+            // Get session ID
+            if (window.MoveoOne && window.MoveoOne.instance) {
+                document.getElementById('session-id').textContent = window.MoveoOne.instance.sessionId || 'Not available';
+            } else {
+                document.getElementById('session-id').textContent = 'Not available';
+            }
+            
+            // Get library version
+            if (window.MoveoOne && window.MoveoOne.getLibVersion) {
+                document.getElementById('lib-version').textContent = window.MoveoOne.getLibVersion();
+            } else {
+                document.getElementById('lib-version').textContent = 'Not available';
+            }
+            
+            // Check prediction API
+            document.getElementById('prediction-api').textContent = window.moveoPredict ? 'Available' : 'Not available';
+        }
+
+        function updateViewportSize() {
+            document.getElementById('viewport-size').textContent = window.innerWidth + ' x ' + window.innerHeight;
+        }
+
+        // Update viewport size on load and resize
+        window.addEventListener('load', updateViewportSize);
+        window.addEventListener('resize', updateViewportSize);
+
+        // Override console.log to show in our console output
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const consoleOutput = document.getElementById('console-output');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = args.join(' ');
+            consoleOutput.appendChild(logEntry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+
+        // Update debug info when page loads
+        window.addEventListener('load', function() {
+            setTimeout(updateDebugInfo, 2000); // Wait 2 seconds for MoveoOne to load
+            
+            // Try to initialize MoveoOne manually if GTM doesn't do it
+            setTimeout(function() {
+                if (window.MoveoOne && typeof window.MoveoOne.init === 'function' && !window.MoveoOne.instance) {
+                    console.log('=== MANUAL MOVEOONE INITIALIZATION ===');
+                    try {
+                        const moveoInstance = window.MoveoOne.init('iLtwRUOaZepHcIcw1', {
+                            appVersion: '1.0.0',
+                            locale: 'en-US',
+                            test: 'true',
+                            calculateLatency: true
+                        });
+                        console.log('MoveoOne initialized manually:', moveoInstance);
+                        updateDebugInfo(); // Refresh debug info
+                    } catch (error) {
+                        console.error('Manual MoveoOne initialization failed:', error);
+                    }
+                }
+            }, 5000); // Wait 5 seconds before manual initialization
+        });
+
+        // Test form submission - let MoveoOne handle the tracking
+        document.getElementById('test-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Form submitted - MoveoOne will track this automatically');
+            alert('Form submitted! MoveoOne will track this event automatically.');
+        });
+    </script>
+
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-54GBH7FP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+</body>
+</html>

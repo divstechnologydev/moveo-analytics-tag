@@ -2,8 +2,8 @@
     // Prevent multiple initializations
     if (window.MoveoOne) return;
   
-    const API_URL = "{{API_URL}}";
-    const DOLPHIN_URL = "{{DOLPHIN_URL}}";
+    const API_URL = "https://api.moveo.one/api/analytic/event/tag";
+    const DOLPHIN_URL = "https://dolphin-prod-229920351162.europe-west1.run.app";
     const LIB_VERSION = "1.0.11"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   

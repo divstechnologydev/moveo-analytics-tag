@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTM Debug Test</title>
+</head>
+<body>
+    <h1>GTM Debug Test</h1>
+    
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-54GBH7FP');</script>
+    <!-- End Google Tag Manager -->
+
+    <script>
+        console.log('=== GTM DEBUG TEST ===');
+        console.log('Page loaded');
+        console.log('DataLayer exists:', typeof dataLayer !== 'undefined');
+        console.log('DataLayer contents:', window.dataLayer);
+        
+        // Check for MoveoOne after 3 seconds
+        setTimeout(function() {
+            console.log('=== MOVEOONE CHECK ===');
+            console.log('MoveoOne available:', typeof window.MoveoOne !== 'undefined');
+            if (window.MoveoOne) {
+                console.log('MoveoOne instance:', window.MoveoOne.instance);
+                console.log('MoveoOne methods:', Object.keys(window.MoveoOne));
+                
+                // Try to initialize MoveoOne manually
+                if (typeof window.MoveoOne.init === 'function') {
+                    console.log('=== MANUAL INITIALIZATION ===');
+                    try {
+                        const moveoInstance = window.MoveoOne.init('iLtwRUOaZepHcIcw1', {
+                            appVersion: '1.0.0',
+                            locale: 'en-US',
+                            test: 'true',
+                            calculateLatency: true
+                        });
+                        console.log('MoveoOne initialized successfully:', moveoInstance);
+                    } catch (error) {
+                        console.error('MoveoOne initialization failed:', error);
+                    }
+                }
+            }
+        }, 3000);
+        
+        // Check for GTM events
+        if (typeof dataLayer !== 'undefined') {
+            const originalPush = dataLayer.push;
+            dataLayer.push = function() {
+                console.log('DataLayer event:', arguments[0]);
+                return originalPush.apply(dataLayer, arguments);
+            };
+        }
+    </script>
+
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-54GBH7FP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+</body>
+</html>
