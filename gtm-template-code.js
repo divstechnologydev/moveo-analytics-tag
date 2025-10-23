@@ -2,6 +2,7 @@
 // Copy this entire code into the GTM Template Editor Code tab
 
 const injectScript = require('injectScript');
+const callInWindow = require('callInWindow');
 const log = require('logToConsole');
 
 // Get configuration from template fields
@@ -31,13 +32,20 @@ if (testMode) {
 }
 config.calculateLatency = calculateLatency;
 
-log('MoveoOne: Initializing with token and config:', config);
+log('MoveoOne: Setting up initialization data with token and config:', config);
+
+log('MoveoOne: Loading script...');
 
 // Load MoveoOne library
-const moveoScriptUrl = 'https://moveoonestorage.blob.core.windows.net/000-scripts/moveo-one-script.min.js';
+const moveoScriptUrl = 'https://moveoonestoragedev.blob.core.windows.net/gtm-template-source/moveo-one-script.min.js';
 
 injectScript(moveoScriptUrl, function() {
-  log('MoveoOne: Script loaded successfully');
+  log('MoveoOne: Script loaded successfully, initializing...');
+  
+  // Initialize MoveoOne using callInWindow (proper GTM approach)
+  callInWindow('MoveoOne.init', moveoToken.trim(), config);
+  
+  log('MoveoOne: Initialized successfully');
   data.gtmOnSuccess();
 }, function() {
   log('MoveoOne Error: Failed to inject script');

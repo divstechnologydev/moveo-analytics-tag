@@ -19,5 +19,6 @@ assertApi('injectScript').wasCalled();
 // Verify that logToConsole was called
 assertApi('logToConsole').wasCalled();
 
-// Note: gtmOnSuccess/gtmOnFailure are called in injectScript callbacks
+// Note: callInWindow is called inside injectScript success callback
 // which may not execute in test environment, so we focus on the main actions
+// The actual callInWindow('MoveoOne.init') happens after script loads

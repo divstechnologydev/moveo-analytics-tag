@@ -70,6 +70,12 @@
     </style>
 </head>
 <body>
+    <!-- MoveoOne will be initialized by GTM Template -->
+    <script>
+        console.log('=== WAITING FOR GTM TO LOAD MOVEOONE ===');
+        console.log('GTM will load MoveoOne script and initialize it with template configuration');
+    </script>
+
     <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -81,15 +87,18 @@
     <h1>MoveoOne GTM Template Test Page</h1>
     
     <div class="tracking-info">
-        <h3>🔍 Testing Instructions</h3>
+        <h3>🔍 GTM Template Testing Instructions</h3>
         <ol>
-            <li>Open browser Developer Tools (F12)</li>
-            <li>Go to Console tab</li>
-            <li>Interact with elements below to test tracking</li>
-            <li>Check console for MoveoOne logs</li>
-            <li>Verify GTM tag fires correctly</li>
+            <li><strong>Configure GTM Template:</strong> Set your MoveoOne token and configuration in the GTM template fields</li>
+            <li><strong>Open Developer Tools:</strong> Press F12 and go to Console tab</li>
+            <li><strong>Load this page:</strong> GTM should automatically load and initialize MoveoOne</li>
+            <li><strong>Check console:</strong> Look for "MoveoOne: Auto-initialized successfully via GTM template"</li>
+            <li><strong>Test tracking:</strong> Interact with elements below to verify tracking works</li>
+            <li><strong>Verify setup:</strong> Check console for initialization messages</li>
         </ol>
+        <p><strong>Note:</strong> This test page expects GTM to handle MoveoOne initialization with your configured token and settings.</p>
     </div>
+
 
     <div class="test-section">
         <h3>📊 Page View & Scroll Tracking</h3>
@@ -274,25 +283,24 @@
         window.addEventListener('load', function() {
             setTimeout(updateDebugInfo, 2000); // Wait 2 seconds for MoveoOne to load
             
-            // Try to initialize MoveoOne manually if GTM doesn't do it
+            // Check MoveoOne status after GTM loads
             setTimeout(function() {
-                if (window.MoveoOne && typeof window.MoveoOne.init === 'function' && !window.MoveoOne.instance) {
-                    console.log('=== MANUAL MOVEOONE INITIALIZATION ===');
-                    try {
-                        const moveoInstance = window.MoveoOne.init('iLtwRUOaZepHcIcw1', {
-                            appVersion: '1.0.0',
-                            locale: 'en-US',
-                            test: 'true',
-                            calculateLatency: true
-                        });
-                        console.log('MoveoOne initialized manually:', moveoInstance);
-                        updateDebugInfo(); // Refresh debug info
-                    } catch (error) {
-                        console.error('Manual MoveoOne initialization failed:', error);
-                    }
+                if (window.MoveoOne && window.MoveoOne.instance) {
+                    console.log('=== MOVEOONE INITIALIZED BY GTM ===');
+                    console.log('MoveoOne instance:', window.MoveoOne.instance);
+                    console.log('Configuration:', window.MoveoOne.instance.meta);
+                } else if (window.MoveoOne && typeof window.MoveoOne.init === 'function') {
+                    console.log('=== MOVEOONE LOADED BUT NOT INITIALIZED ===');
+                    console.log('GTM template may not have configured the token properly');
+                    console.log('Check your GTM template configuration');
+                } else {
+                    console.log('=== MOVEOONE NOT LOADED ===');
+                    console.log('GTM template may not be configured or tag not firing');
+                    console.log('Check your GTM template configuration and tag triggers');
                 }
-            }, 5000); // Wait 5 seconds before manual initialization
+            }, 3000); // Wait 3 seconds for GTM to load
         });
+
 
         // Test form submission - let MoveoOne handle the tracking
         document.getElementById('test-form').addEventListener('submit', function(e) {
