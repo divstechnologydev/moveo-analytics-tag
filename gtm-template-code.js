@@ -9,7 +9,7 @@ const log = require('logToConsole');
 const moveoToken = data.moveoToken;
 const appVersion = data.appVersion || '';
 const locale = data.locale || '';
-const testMode = data.testMode || false;
+const test = data.test || ''; // A/B test identifier (A, B, or custom)
 const calculateLatency = data.calculateLatency !== false; // Default to true
 
 // Validate required token
@@ -27,8 +27,8 @@ if (appVersion && appVersion.trim() !== '') {
 if (locale && locale.trim() !== '') {
   config.locale = locale.trim();
 }
-if (testMode) {
-  config.test = 'true';
+if (test && test.trim() !== '') {
+  config.test = test.trim(); // A/B test identifier
 }
 config.calculateLatency = calculateLatency;
 
