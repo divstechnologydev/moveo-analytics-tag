@@ -6,7 +6,7 @@ const mockData = {
   moveoToken: 'test-token-123',
   appVersion: '1.0.0',
   locale: 'en-US',
-  testMode: true,
+  test: 'A', // A/B test identifier
   calculateLatency: true
 };
 
