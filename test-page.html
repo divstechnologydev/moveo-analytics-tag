@@ -219,8 +219,14 @@
             const resultDiv = document.getElementById('prediction-result');
             resultDiv.innerHTML = 'Testing prediction...';
             
-            if (window.moveoPredict) {
-                window.moveoPredict('test-model-id')
+            // Check if MoveoOne is available and has predict method
+            if (window.MoveoOne && typeof window.MoveoOne.predict === 'function') {
+                console.log('Calling MoveoOne.predict...');
+                
+                // Get model ID from user or use default
+                const modelId = prompt('Enter model ID (or leave empty for test):', 'test-model-id') || 'test-model-id';
+                
+                window.MoveoOne.predict(modelId)
                     .then(result => {
                         resultDiv.innerHTML = '<strong>Prediction Result:</strong><br>' + JSON.stringify(result, null, 2);
                         console.log('Prediction result:', result);
@@ -230,7 +236,11 @@
                         console.error('Prediction error:', error);
                     });
             } else {
-                resultDiv.innerHTML = '<strong>Error:</strong> Prediction API not available. Make sure MoveoOne is loaded and prediction is enabled.';
+                resultDiv.innerHTML = '<strong>Error:</strong> Prediction API not available. Make sure MoveoOne is loaded and initialized.';
+                console.error('MoveoOne.predict not available:', {
+                    MoveoOne: window.MoveoOne,
+                    hasPredict: window.MoveoOne && typeof window.MoveoOne.predict === 'function'
+                });
             }
         }
 
@@ -257,7 +267,11 @@
             }
             
             // Check prediction API
-            document.getElementById('prediction-api').textContent = window.moveoPredict ? 'Available' : 'Not available';
+            if (window.MoveoOne && typeof window.MoveoOne.predict === 'function') {
+                document.getElementById('prediction-api').textContent = 'Available (MoveoOne.predict)';
+            } else {
+                document.getElementById('prediction-api').textContent = 'Not available';
+            }
         }
 
         function updateViewportSize() {
@@ -289,10 +303,12 @@
                     console.log('=== MOVEOONE INITIALIZED BY GTM ===');
                     console.log('MoveoOne instance:', window.MoveoOne.instance);
                     console.log('Configuration:', window.MoveoOne.instance.meta);
+                    console.log('Prediction API available:', typeof window.MoveoOne.predict === 'function');
                 } else if (window.MoveoOne && typeof window.MoveoOne.init === 'function') {
                     console.log('=== MOVEOONE LOADED BUT NOT INITIALIZED ===');
                     console.log('GTM template may not have configured the token properly');
                     console.log('Check your GTM template configuration');
+                    console.log('MoveoOne object:', window.MoveoOne);
                 } else {
                     console.log('=== MOVEOONE NOT LOADED ===');
                     console.log('GTM template may not be configured or tag not firing');
