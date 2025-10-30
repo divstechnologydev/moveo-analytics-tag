@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.11"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.12"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -2818,5 +2818,41 @@
       }
 
     };
+
+    // Auto-initialization for GTM template integration
+    // This code runs immediately when the script loads and checks for GTM-provided data
+    (function() {
+      // Check if we're being loaded by GTM template with auto-initialization flag
+      if (window.moveoOneAutoInit && window.moveoOneToken) {
+        try {
+          // Get the token and config from global variables set by GTM template
+          const token = window.moveoOneToken;
+          const config = window.moveoOneConfig || {};
+          
+          // Initialize MoveoOne immediately with the provided data
+          const instance = window.MoveoOne.init(token, config);
+          
+          // Clean up global variables after successful initialization
+          delete window.moveoOneToken;
+          delete window.moveoOneConfig;
+          delete window.moveoOneAutoInit;
+          
+          // Log successful auto-initialization (only if logging is enabled)
+          if (window.MoveoOne && window.MoveoOne.instance && window.MoveoOne.instance.meta && window.MoveoOne.instance.meta.libVersion) {
+            console.log('MoveoOne: Auto-initialized successfully via GTM template');
+          }
+          
+        } catch (error) {
+          // Log initialization error
+          console.error('MoveoOne: Auto-initialization failed:', error);
+          
+          // Clean up global variables even on error
+          delete window.moveoOneToken;
+          delete window.moveoOneConfig;
+          delete window.moveoOneAutoInit;
+        }
+      }
+    })();
+
   })(window);
   
