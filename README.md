@@ -158,7 +158,7 @@ MoveoOne.predict('your-model-id')
 {
   success: false,
   status: 'timeout',
-  message: 'Request timed out after 400 milliseconds'
+  message: 'Request timed out after 500 milliseconds'
 }
 ```
 
@@ -174,7 +174,7 @@ The library includes several optimizations to make predict requests as fast as p
 ## Notes
 
 - The `predict` method is **non-blocking** and won't affect your website's performance
-- All requests have a 400-millisecond timeout to prevent hanging
+- All requests have a 500-millisecond timeout to prevent hanging
 - The method automatically uses the current session ID and sends all buffered events to the prediction service
 - **202 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()

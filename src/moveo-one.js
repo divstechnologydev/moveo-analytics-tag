@@ -2331,9 +2331,12 @@
   
       // Generate stable, unique element ID that persists across page loads
       generateStableElementId(element) {
-        // For elements with stable IDs, use them directly
+        const section = this.getCurrentPath();
+        
+        // For elements with stable IDs, include section to ensure uniqueness across pages
         if (element.id && element.id.trim()) {
-          return this.cleanElementId(element.id);
+          const sectionHash = this.hashString(section);
+          return this.cleanElementId(`${element.id}_${sectionHash}`);
         }
   
         // Build a stable signature using only immutable properties
@@ -2349,6 +2352,8 @@
       buildStableSignature(element) {
         const signature = {
           tag: element.tagName.toLowerCase(),
+          // Include the section (page path) the element is on
+          section: this.getCurrentPath(),
           // Only include stable attributes that don't change
           stableAttributes: this.getStableAttributes(element),
           // Only include stable content that doesn't change
@@ -2573,7 +2578,7 @@
 
           // Make the HTTP request with timeout and error handling
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 400); // 400 millisecond timeout
+          const timeoutId = setTimeout(() => controller.abort(), 500); // 500 millisecond timeout
 
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -2688,7 +2693,7 @@
             return {
               success: false,
               status: 'timeout',
-              message: 'Request timed out after 400 milliseconds'
+              message: 'Request timed out after 500 milliseconds'
             };
           }
 
