@@ -2594,13 +2594,13 @@
           clearTimeout(timeoutId);
 
           // Handle different response status codes
-          if (response.status === 202) {
+          if (response.status === 423) {
             // Model is loading or validating - client needs to retry
             const responseData = await response.json();
             return {
               success: false,
               status: 'pending',
-              message: responseData.message || 'Model is loading, please try again'
+              message: responseData.detail || 'Model is loading, please try again'
             };
           }
 
@@ -2619,6 +2619,15 @@
               success: false,
               status: 'conflict',
               message: errorData.detail || 'Conditional event not found'
+            };
+          }
+
+          if (response.status === 412) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'ab_test_control',
+              message: errorData.detail || 'Prediction skipped due to A/B test configuration'
             };
           }
 
