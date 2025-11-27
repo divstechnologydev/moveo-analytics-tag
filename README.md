@@ -126,6 +126,15 @@ MoveoOne.predict('your-model-id')
 }
 ```
 
+#### A/B Test Skipped
+```javascript
+{
+  success: false,
+  status: 'ab_test_control',
+  message: 'Prediction skipped due to A/B test configuration'
+}
+```
+
 #### Target Already Reached
 ```javascript
 {

@@ -2622,6 +2622,15 @@
             };
           }
 
+          if (response.status === 412) {
+            const errorData = await response.json().catch(() => ({}));
+            return {
+              success: false,
+              status: 'ab_test_control',
+              message: errorData.detail || 'Prediction skipped due to A/B test configuration'
+            };
+          }
+
           if (response.status === 422) {
             const errorData = await response.json().catch(() => ({}));
             
