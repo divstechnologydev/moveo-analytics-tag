@@ -185,7 +185,7 @@ The library includes several optimizations to make predict requests as fast as p
 - The `predict` method is **non-blocking** and won't affect your website's performance
 - All requests have a 500-millisecond timeout to prevent hanging
 - The method automatically uses the current session ID and sends all buffered events to the prediction service
-- **202 responses are normal pending states** - models may need time to load or validate
+- **423 responses are normal pending states** - models may need time to load or validate
 - The method returns a Promise, so you can use async/await or .then()/.catch()
 - Check `success: true` for complete predictions (only when `status: 'success'`)
 - **First request optimization**: Connection establishment happens during library initialization, making the first predict request much faster

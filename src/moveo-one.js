@@ -2594,13 +2594,13 @@
           clearTimeout(timeoutId);
 
           // Handle different response status codes
-          if (response.status === 202) {
+          if (response.status === 423) {
             // Model is loading or validating - client needs to retry
             const responseData = await response.json();
             return {
               success: false,
               status: 'pending',
-              message: responseData.message || 'Model is loading, please try again'
+              message: responseData.detail || 'Model is loading, please try again'
             };
           }
 
