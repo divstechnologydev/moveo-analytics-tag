@@ -932,7 +932,7 @@
           }),
           type: "page",
           action: "page_view",
-          value: document.title,
+          value: this.getCurrentPath(),
         });
   
         this.track("viewport_size", {
