@@ -34,7 +34,7 @@ You can track your application version by setting it during initialization:
 You can set the deployment type to control impression (appear/disappear) tracking:
 
 - **`STATIC_WEBSITE`** (default) — The library tracks when elements enter and leave the viewport and sends appear/disappear events to the API.
-- **`WEB_APP`** — Appear and disappear events are not sent. All other tracking (clicks, links, media, viewport, page view, etc.) works as usual. Use this for single-page or app-like experiences where viewport impressions are not needed.
+- **`WEB_APP`** — Appear and disappear events are not sent. All other tracking (clicks, links, media, viewport, page view, etc.) works as usual. Use this for single-page or app-like experiences where viewport impressions are not needed. With `WEB_APP` you can also send user data from storage (e.g. user ID) in session metadata for cross-session tracking and model creation.
 
 ```html
 <script>
