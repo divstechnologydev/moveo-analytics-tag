@@ -48,12 +48,12 @@ You can set the deployment type to control impression (appear/disappear) trackin
 
 ### User data from storage (WEB_APP only)
 
-When `type` is `WEB_APP`, you can optionally pass a **storage source** and a list of **user data keys**. The script will read those keys from the chosen storage (e.g. your app’s `localStorage` or `sessionStorage`) when building the first session metadata and add the key–value pairs to the event payload. This only runs when `type === 'WEB_APP'`; for `STATIC_WEBSITE` these options are ignored.
+When `type` is `WEB_APP`, you can optionally pass a **storage source** and a list of **user data keys**. The script will read those keys from the chosen storage (e.g. your app’s `localStorage` or `sessionStorage`) when building the first session and add the key–value pairs to **session metadata** (`meta`), not to additional metadata. This only runs when `type === 'WEB_APP'`; for `STATIC_WEBSITE` these options are ignored.
 
 - **`storageSource`** — Where to read from: `'local'` (default) for `localStorage`, or `'session'` for `sessionStorage`.
-- **`userDataKeys`** — Array of storage key names to read (e.g. `['user_id', 'organization_id', 'user_email']`). Only keys that exist and can be read are added to metadata; missing keys are skipped. Invalid or inaccessible storage is caught and logged without breaking the script.
+- **`userDataKeys`** — Array of storage key names to read (e.g. `['user_id', 'organization_id', 'user_email']`). Only keys that exist and can be read are added to session metadata (`meta`); missing keys are skipped. Invalid or inaccessible storage is caught and logged without breaking the script.
 
-Example: if your app stores a user identifier under the key `id` in `localStorage`, you can send it as metadata with:
+Example: if your app stores a user identifier under the key `id` in `localStorage`, you can send it in session metadata with:
 
 ```html
 <script>

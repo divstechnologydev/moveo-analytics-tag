@@ -861,6 +861,11 @@
         }
   
         // This is a genuinely new session
+        // Load user data from storage (WEB_APP only) and merge into session meta
+        const userData = this.loadUserDataFromStorage();
+        if (Object.keys(userData).length > 0) {
+          this.meta = { ...this.meta, ...userData };
+        }
         // Ensure libVersion is always present in meta and filter out null values
         const protectedMeta = this.filterNullMetaValues({
           ...this.meta,
@@ -914,18 +919,14 @@
   
         // Get IP address data asynchronously (this is the slow part)
         const ipData = await this.enrichWithIpAddress();
-
-        // Load user data from storage (WEB_APP only) and merge into metadata
-        const userData = this.loadUserDataFromStorage();
   
-        // Add all additional data to additionalMeta
+        // Add all additional data to additionalMeta (user data is in meta, not additionalMeta)
         event.additionalMeta = {
           ...event.additionalMeta,
           ...utmParams,
           ...sessionData,
           ...screenData,
           ...ipData,
-          ...userData,
           title: document.title,
         };
   
