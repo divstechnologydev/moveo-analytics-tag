@@ -2794,23 +2794,13 @@
         instance.userDataKeys = rawKeys.filter((k) => typeof k === "string" && k.trim() !== "");
   
         // Define allowed meta fields (libVersion is automatically included and protected)
-        const allowedMetaFields = ["locale", "test", "appVersion", "calculateLatency"];
+        const allowedMetaFields = ["appVersion", "calculateLatency"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
           if (key === "type" || key === "storageSource" || key === "userDataKeys") return; // Already applied above
           if (allowedMetaFields.includes(key)) {
             switch (key) {
-              case "locale":
-                if (typeof options[key] === "string") {
-                  instance.meta.locale = options[key];
-                }
-                break;
-              case "test":
-                if (typeof options[key] === "string") {
-                  instance.meta.test = options[key];
-                }
-                break;
               case "appVersion":
                 if (typeof options[key] === "string") {
                   instance.meta.appVersion = options[key];

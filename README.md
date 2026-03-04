@@ -74,8 +74,6 @@ Example: if your app stores a user identifier under the key `id` in `localStorag
     storageSource: 'local',     // 'local' or 'session' — used only when type is 'WEB_APP'
     userDataKeys: [],          // e.g. ['user_id', 'organization_id'] — used only when type is 'WEB_APP'
     appVersion: '1.0.0',       // Your app version
-    locale: 'en-US',           // User locale
-    test: 'false',             // Test mode flag
   });
 </script>
 ```
