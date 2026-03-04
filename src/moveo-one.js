@@ -17,7 +17,10 @@
         this.flushInterval = 5000;
         this.maxThreshold = 100;
         this.context = "WEB_STATIC";
-  
+        this.type = "STATIC_WEBSITE";
+        this.storageSource = "local";
+        this.userDataKeys = [];
+
         // Use persistent session ID across page loads
         this.sessionId = this.getOrCreateSessionId();
         this.started = false;
@@ -521,6 +524,7 @@
   
       // Send impression event with specific timestamp
       sendAutoImpressionWithTimestamp(el, rect, action, timestamp) {
+        if (this.type === "WEB_APP" && (action === "appear" || action === "disappear")) return;
         // Determine the element value based on type
         let value = "";
   
@@ -751,6 +755,28 @@
         });
       }
   
+      loadUserDataFromStorage() {
+        if (this.type !== "WEB_APP" || !this.userDataKeys || this.userDataKeys.length === 0) {
+          return {};
+        }
+        const storage = this.storageSource === "session" ? window.sessionStorage : window.localStorage;
+        const result = {};
+        try {
+          for (let i = 0; i < this.userDataKeys.length; i++) {
+            const key = this.userDataKeys[i];
+            const value = storage.getItem(key);
+            if (value != null) {
+              result[key] = value;
+            }
+          }
+        } catch (e) {
+          if (LOGGING_ENABLED) {
+            console.warn("MoveoOne: Could not read user data from storage", e);
+          }
+        }
+        return result;
+      }
+
       enrichWithIpAddress() {
         return fetch("https://api.moveo.one/api/my-ip")
           .then((response) => response.json())
@@ -888,6 +914,9 @@
   
         // Get IP address data asynchronously (this is the slow part)
         const ipData = await this.enrichWithIpAddress();
+
+        // Load user data from storage (WEB_APP only) and merge into metadata
+        const userData = this.loadUserDataFromStorage();
   
         // Add all additional data to additionalMeta
         event.additionalMeta = {
@@ -896,6 +925,7 @@
           ...sessionData,
           ...screenData,
           ...ipData,
+          ...userData,
           title: document.title,
         };
   
@@ -947,8 +977,7 @@
       }
   
       initImpressionObserver() {
-        // Remove early exit to allow impression tracking to start immediately
-        // if (!this.started) return; // ❌ Removed this line
+        if (this.type === "WEB_APP") return;
   
         // Configuration
         const IO_THRESHOLD = 0.2; // 20% visible
@@ -1096,6 +1125,7 @@
       }
   
       sendAutoImpression(el, rect, action) {
+        if (this.type === "WEB_APP" && (action === "appear" || action === "disappear")) return;
         // Check if session is ready, if not queue the impression
         if (!this.started) {
           // Queue impression events until session is ready
@@ -2740,12 +2770,35 @@
         }
         
         const instance = new MoveoOneWeb(token);
+
+        // Validate and set type (default STATIC_WEBSITE, allowed WEB_APP)
+        const allowedTypes = ["STATIC_WEBSITE", "WEB_APP"];
+        const requestedType = options.type ?? "STATIC_WEBSITE";
+        instance.type = allowedTypes.includes(requestedType) ? requestedType : "STATIC_WEBSITE";
+        if (requestedType !== instance.type && LOGGING_ENABLED) {
+          console.warn(
+            `MoveoOne: Invalid type "${requestedType}" ignored. Using "${instance.type}". Allowed: ${allowedTypes.join(", ")}.`
+          );
+        }
+
+        // Storage source and user data keys (used when type === WEB_APP for start_session metadata)
+        const allowedStorageSources = ["local", "session"];
+        const requestedStorage = options.storageSource ?? "local";
+        instance.storageSource = allowedStorageSources.includes(requestedStorage) ? requestedStorage : "local";
+        if (requestedStorage !== instance.storageSource && LOGGING_ENABLED) {
+          console.warn(
+            `MoveoOne: Invalid storageSource "${requestedStorage}" ignored. Using "${instance.storageSource}". Allowed: ${allowedStorageSources.join(", ")}.`
+          );
+        }
+        const rawKeys = Array.isArray(options.userDataKeys) ? options.userDataKeys : [];
+        instance.userDataKeys = rawKeys.filter((k) => typeof k === "string" && k.trim() !== "");
   
         // Define allowed meta fields (libVersion is automatically included and protected)
         const allowedMetaFields = ["locale", "test", "appVersion", "calculateLatency"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
+          if (key === "type" || key === "storageSource" || key === "userDataKeys") return; // Already applied above
           if (allowedMetaFields.includes(key)) {
             switch (key) {
               case "locale":

@@ -29,14 +29,53 @@ You can track your application version by setting it during initialization:
 </script>
 ```
 
+### Deployment type (static website vs web app)
+
+You can set the deployment type to control impression (appear/disappear) tracking:
+
+- **`STATIC_WEBSITE`** (default) — The library tracks when elements enter and leave the viewport and sends appear/disappear events to the API.
+- **`WEB_APP`** — Appear and disappear events are not sent. All other tracking (clicks, links, media, viewport, page view, etc.) works as usual. Use this for single-page or app-like experiences where viewport impressions are not needed.
+
+```html
+<script>
+  // Static website (default): impression observer runs, appear/disappear sent
+  const moveo = MoveoOne.init('YOUR_TOKEN_HERE');
+
+  // Web app: no appear/disappear events; all other tracking unchanged
+  const moveo = MoveoOne.init('YOUR_TOKEN_HERE', { type: 'WEB_APP' });
+</script>
+```
+
+### User data from storage (WEB_APP only)
+
+When `type` is `WEB_APP`, you can optionally pass a **storage source** and a list of **user data keys**. The script will read those keys from the chosen storage (e.g. your app’s `localStorage` or `sessionStorage`) when building the first session metadata and add the key–value pairs to the event payload. This only runs when `type === 'WEB_APP'`; for `STATIC_WEBSITE` these options are ignored.
+
+- **`storageSource`** — Where to read from: `'local'` (default) for `localStorage`, or `'session'` for `sessionStorage`.
+- **`userDataKeys`** — Array of storage key names to read (e.g. `['user_id', 'organization_id', 'user_email']`). Only keys that exist and can be read are added to metadata; missing keys are skipped. Invalid or inaccessible storage is caught and logged without breaking the script.
+
+Example: if your app stores a user identifier under the key `id` in `localStorage`, you can send it as metadata with:
+
+```html
+<script>
+  const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
+    type: 'WEB_APP',
+    storageSource: 'local',   // default; use 'session' for sessionStorage
+    userDataKeys: ['id', 'user_id', 'organization_id']
+  });
+</script>
+```
+
 ### Complete Configuration Options
 
 ```html
 <script>
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
-    appVersion: '1.0.0',        // Your app version
-    locale: 'en-US',            // User locale
-    test: 'false',              // Test mode flag
+    type: 'STATIC_WEBSITE',     // 'STATIC_WEBSITE' (default) or 'WEB_APP'
+    storageSource: 'local',     // 'local' or 'session' — used only when type is 'WEB_APP'
+    userDataKeys: [],          // e.g. ['user_id', 'organization_id'] — used only when type is 'WEB_APP'
+    appVersion: '1.0.0',       // Your app version
+    locale: 'en-US',           // User locale
+    test: 'false',             // Test mode flag
   });
 </script>
 ```
