@@ -20,6 +20,7 @@
         this.type = "STATIC_WEBSITE";
         this.storageSource = "local";
         this.userDataKeys = [];
+        this.exclude_detailed_tracking = false;
 
         // Use persistent session ID across page loads
         this.sessionId = this.getOrCreateSessionId();
@@ -524,7 +525,7 @@
   
       // Send impression event with specific timestamp
       sendAutoImpressionWithTimestamp(el, rect, action, timestamp) {
-        if (this.type === "WEB_APP" && (action === "appear" || action === "disappear")) return;
+        if ((this.type === "WEB_APP" || this.exclude_detailed_tracking) && (action === "appear" || action === "disappear")) return;
         // Determine the element value based on type
         let value = "";
   
@@ -978,7 +979,7 @@
       }
   
       initImpressionObserver() {
-        if (this.type === "WEB_APP") return;
+        if (this.type === "WEB_APP" || this.exclude_detailed_tracking) return;
   
         // Configuration
         const IO_THRESHOLD = 0.2; // 20% visible
@@ -1126,7 +1127,7 @@
       }
   
       sendAutoImpression(el, rect, action) {
-        if (this.type === "WEB_APP" && (action === "appear" || action === "disappear")) return;
+        if ((this.type === "WEB_APP" || this.exclude_detailed_tracking) && (action === "appear" || action === "disappear")) return;
         // Check if session is ready, if not queue the impression
         if (!this.started) {
           // Queue impression events until session is ready
@@ -2793,13 +2794,22 @@
         }
         const rawKeys = Array.isArray(options.userDataKeys) ? options.userDataKeys : [];
         instance.userDataKeys = rawKeys.filter((k) => typeof k === "string" && k.trim() !== "");
+
+        // exclude_detailed_tracking: when true, skip appear/disappear (STATIC_WEBSITE only)
+        const requestedExclude = options.exclude_detailed_tracking;
+        instance.exclude_detailed_tracking = typeof requestedExclude === "boolean" ? requestedExclude : false;
+        if (requestedExclude !== undefined && typeof requestedExclude !== "boolean" && LOGGING_ENABLED) {
+          console.warn(
+            "MoveoOne: exclude_detailed_tracking must be a boolean; using false."
+          );
+        }
   
         // Define allowed meta fields (libVersion is automatically included and protected)
         const allowedMetaFields = ["appVersion", "calculateLatency"];
   
         // Validate and set only allowed meta values
         Object.keys(options).forEach((key) => {
-          if (key === "type" || key === "storageSource" || key === "userDataKeys") return; // Already applied above
+          if (key === "type" || key === "storageSource" || key === "userDataKeys" || key === "exclude_detailed_tracking") return; // Already applied above
           if (allowedMetaFields.includes(key)) {
             switch (key) {
               case "appVersion":
