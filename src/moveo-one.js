@@ -807,6 +807,7 @@
 
       // Throttled wrapper — safe to call on every activity event.
       maybeSyncUserDataFromStorage() {
+        if (!this.started) return;
         if (this.type !== "WEB_APP" || !this.userDataKeys || this.userDataKeys.length === 0) return;
         const THROTTLE_MS = 5000;
         const now = Date.now();
