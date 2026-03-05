@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.14"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.15"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -57,6 +57,12 @@
         this.trackedMedia = new WeakSet(); // Track media without DOM attributes
         this.pendingImpressions = []; // Queue for impression events before session starts
         this.pendingImmediateEvents = []; // Queue for immediate events before session starts
+
+        // WEB_APP user-data sync state (late-login / account-switch detection)
+        this._userDataSignature = "";
+        this._lastUserDataCheckAt = 0;
+        this._userDataSyncTimer = null;
+        this._userDataSyncAttempts = 0;
   
         // Start flush interval
         setInterval(() => this.flush(), this.flushInterval);
@@ -282,6 +288,7 @@
       updateSessionActivity() {
         const timestampKey = "moveo-session-timestamp";
         localStorage.setItem(timestampKey, Date.now().toString());
+        this.maybeSyncUserDataFromStorage();
       }
   
       initialize() {
@@ -778,6 +785,64 @@
         return result;
       }
 
+      // Build a stable string signature for a user-data object (sorted keys)
+      computeUserDataSignature(obj) {
+        return Object.keys(obj).sort().map(k => `${k}=${obj[k]}`).join("|");
+      }
+
+      // Re-read userDataKeys from storage and emit update_metadata when values changed.
+      // Returns true if the signature changed (regardless of whether an event was sent).
+      syncUserDataFromStorage({ force = false } = {}) {
+        if (this.type !== "WEB_APP" || !this.userDataKeys || this.userDataKeys.length === 0) return false;
+        const userData = this.loadUserDataFromStorage();
+        const sig = this.computeUserDataSignature(userData);
+        if (!force && sig === this._userDataSignature) return false;
+        this._userDataSignature = sig;
+        if (Object.keys(userData).length > 0) {
+          this.meta = { ...this.meta, ...userData };
+          this.queueOrSendUpdate("meta");
+        }
+        return true;
+      }
+
+      // Throttled wrapper — safe to call on every activity event.
+      maybeSyncUserDataFromStorage() {
+        if (this.type !== "WEB_APP" || !this.userDataKeys || this.userDataKeys.length === 0) return;
+        const THROTTLE_MS = 5000;
+        const now = Date.now();
+        if (now - this._lastUserDataCheckAt < THROTTLE_MS) return;
+        this._lastUserDataCheckAt = now;
+        this.syncUserDataFromStorage();
+      }
+
+      // Bounded exponential-backoff poller — fires after session starts, stops once all
+      // keys are resolved or the attempt cap is reached.
+      startUserDataSync() {
+        if (this.type !== "WEB_APP" || !this.userDataKeys || this.userDataKeys.length === 0) return;
+        this.stopUserDataSync();
+        this._userDataSyncAttempts = 0;
+        this._scheduleUserDataSync(1000);
+      }
+
+      _scheduleUserDataSync(delayMs) {
+        const MAX_ATTEMPTS = 8;
+        const MAX_DELAY_MS = 30000;
+        this._userDataSyncTimer = setTimeout(() => {
+          this._userDataSyncAttempts++;
+          this.syncUserDataFromStorage();
+          const allKeysPresent = this.userDataKeys.every(k => this.meta[k] != null);
+          if (allKeysPresent || this._userDataSyncAttempts >= MAX_ATTEMPTS) return;
+          this._scheduleUserDataSync(Math.min(delayMs * 2, MAX_DELAY_MS));
+        }, delayMs);
+      }
+
+      stopUserDataSync() {
+        if (this._userDataSyncTimer) {
+          clearTimeout(this._userDataSyncTimer);
+          this._userDataSyncTimer = null;
+        }
+      }
+
       enrichWithIpAddress() {
         return fetch("https://api.moveo.one/api/my-ip")
           .then((response) => response.json())
@@ -818,6 +883,10 @@
           if (this.buffer.length >= this.maxThreshold) {
             this.flush();
           }
+
+          // Check for user data that may have appeared since the previous page (WEB_APP only)
+          this.syncUserDataFromStorage();
+          this.startUserDataSync();
           return;
         }
   
@@ -857,7 +926,10 @@
             action: "viewport_size",
             value: `${this.currentViewport.width}x${this.currentViewport.height}`,
           });
-  
+
+          // Check for user data that may have appeared since the session began (WEB_APP only)
+          this.syncUserDataFromStorage();
+          this.startUserDataSync();
           return;
         }
   
@@ -867,6 +939,8 @@
         if (Object.keys(userData).length > 0) {
           this.meta = { ...this.meta, ...userData };
         }
+        // Seed the signature so the poller only fires when values actually change later
+        this._userDataSignature = this.computeUserDataSignature(userData);
         // Ensure libVersion is always present in meta and filter out null values
         const protectedMeta = this.filterNullMetaValues({
           ...this.meta,
@@ -942,6 +1016,9 @@
   
         // Optionally warm up the prediction service (lightweight request with zero performance impact)
         this.warmupPredictionService();
+
+        // Begin polling for user data that may appear after login (WEB_APP only)
+        this.startUserDataSync();
   
         // Process any pending updates that were queued before session started
         this.processPendingUpdates();
