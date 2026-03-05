@@ -2207,36 +2207,41 @@
           }
         };
   
-        // Add click listener to document
+        // Single document-level listener: clicks bubble to document, so dynamically
+        // added content (e.g. Vue/React) is tracked without attaching per-node listeners.
+        // Attaching handleClick to every new node caused duplicate events (one per ancestor).
         document.addEventListener("click", handleClick);
-  
-        // Also watch for dynamically added elements
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                // Re-attach click listener to ensure new elements are tracked
-                if (node.addEventListener) {
-                  node.addEventListener("click", handleClick);
-                }
-                // Also check child elements
-                if (node.querySelectorAll) {
-                  node.querySelectorAll("*").forEach((child) => {
-                    if (child.addEventListener) {
-                      child.addEventListener("click", handleClick);
-                    }
-                  });
-                }
-              }
-            });
-          });
-        });
-  
-        // Start observing
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
+
+        // NOTE: The MutationObserver below is intentionally disabled.
+        // It attached handleClick to every newly added node AND all its descendants,
+        // which caused duplicate click events because a single click bubbles through
+        // multiple ancestors that all had the same handler attached.
+        // The document-level listener above already covers dynamically added elements
+        // via event bubbling — no per-node listeners are needed.
+        //
+        // const observer = new MutationObserver((mutations) => {
+        //   mutations.forEach((mutation) => {
+        //     mutation.addedNodes.forEach((node) => {
+        //       if (node.nodeType === Node.ELEMENT_NODE) {
+        //         if (node.addEventListener) {
+        //           node.addEventListener("click", handleClick);
+        //         }
+        //         if (node.querySelectorAll) {
+        //           node.querySelectorAll("*").forEach((child) => {
+        //             if (child.addEventListener) {
+        //               child.addEventListener("click", handleClick);
+        //             }
+        //           });
+        //         }
+        //       }
+        //     });
+        //   });
+        // });
+        //
+        // observer.observe(document.body, {
+        //   childList: true,
+        //   subtree: true
+        // });
       }
   
       setupScrollTracking() {
