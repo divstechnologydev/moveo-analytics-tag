@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.15"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.16"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
   
     /**
@@ -312,6 +312,7 @@
         this.setupClickTracking();
         this.setupDownloadOrOutboundLinkTracking();
         this.setupScrollTracking();
+        this.setupNestedScrollTracking();
         this.setupFormTracking();
         this.setupHoverTracking();
         this.setupResizeTracking();
@@ -2353,6 +2354,230 @@
           }, 500);
         });
       }
+
+      /**
+       * Heuristic score for nested scroll containers (higher = more "important").
+       * Returns null if the element should not be tracked as a scroll container.
+       */
+      getNestedScrollContainerScore(element) {
+        if (!element || element.nodeType !== 1) return null;
+
+        const skipTags = [
+          "SCRIPT",
+          "STYLE",
+          "NOSCRIPT",
+          "META",
+          "LINK",
+          "HEAD",
+          "TITLE",
+        ];
+        if (skipTags.includes(element.tagName)) return null;
+
+        try {
+          const rootScroller = document.scrollingElement;
+          if (rootScroller && element === rootScroller) return null;
+        } catch (e) {
+          return null;
+        }
+
+        if (element.id && String(element.id).includes("moveo")) return null;
+        const cn = element.className;
+        if (typeof cn === "string" && cn.includes("moveo")) return null;
+
+        let style;
+        try {
+          style = window.getComputedStyle(element);
+        } catch (e) {
+          return null;
+        }
+
+        const oy = style.overflowY;
+        if (oy !== "auto" && oy !== "scroll") return null;
+
+        const maxScrollY = element.scrollHeight - element.clientHeight;
+        const minScrollRange = 100;
+        if (maxScrollY < minScrollRange) return null;
+
+        // Min footprint: exclude tiny menus/tooltips but allow compact panels (e.g. 140px test/demo UIs)
+        const minClientHeight = 100;
+        const minClientWidth = 100;
+        if (element.clientHeight < minClientHeight || element.clientWidth < minClientWidth) {
+          return null;
+        }
+
+        return maxScrollY * element.clientWidth;
+      }
+
+      setupNestedScrollTracking() {
+        // Same policy as setupScrollTracking: not gated by exclude_detailed_tracking
+        // (that flag only affects appear/disappear impressions, etc.)
+
+        const MAX_CONTAINERS = 50;
+        const DEBOUNCE_MS = 250;
+        const SCROLL_IDLE_MS = 500;
+        const SCROLL_DELTA_PX = 100;
+
+        const candidateElements = new Set();
+        const attachedHandlers = new Map();
+        const scrollState = new WeakMap();
+
+        let reconcileTimer = null;
+        const scheduleReconcile = () => {
+          clearTimeout(reconcileTimer);
+          reconcileTimer = setTimeout(() => {
+            reconcile();
+          }, DEBOUNCE_MS);
+        };
+
+        const purgeSubtree = (node) => {
+          const visit = (el) => {
+            candidateElements.delete(el);
+            if (attachedHandlers.has(el)) {
+              const handler = attachedHandlers.get(el);
+              const st = scrollState.get(el);
+              if (st && st.timeout) clearTimeout(st.timeout);
+              el.removeEventListener("scroll", handler, { passive: true });
+              attachedHandlers.delete(el);
+              scrollState.delete(el);
+            }
+          };
+
+          if (node.nodeType === 1) {
+            visit(node);
+            if (node.querySelectorAll) {
+              node.querySelectorAll("*").forEach(visit);
+            }
+          }
+        };
+
+        const considerElement = (el) => {
+          if (!el || el.nodeType !== 1) return;
+          const score = this.getNestedScrollContainerScore(el);
+          if (score != null) candidateElements.add(el);
+        };
+
+        const reconcile = () => {
+          const ranked = [];
+          for (const el of Array.from(candidateElements)) {
+            if (!el.isConnected) {
+              candidateElements.delete(el);
+              continue;
+            }
+            const score = this.getNestedScrollContainerScore(el);
+            if (score == null) {
+              candidateElements.delete(el);
+              continue;
+            }
+            ranked.push({ el, score });
+          }
+
+          ranked.sort((a, b) => b.score - a.score);
+          const desired = new Set(
+            ranked.slice(0, MAX_CONTAINERS).map((r) => r.el)
+          );
+
+          for (const el of Array.from(attachedHandlers.keys())) {
+            if (!desired.has(el)) {
+              const handler = attachedHandlers.get(el);
+              const st = scrollState.get(el);
+              if (st && st.timeout) clearTimeout(st.timeout);
+              el.removeEventListener("scroll", handler, { passive: true });
+              attachedHandlers.delete(el);
+              scrollState.delete(el);
+            }
+          }
+
+          desired.forEach((el) => {
+            if (attachedHandlers.has(el)) return;
+
+            const containerId = this.generateStableElementId(el);
+            const state = { lastTop: 0, timeout: null };
+            scrollState.set(el, state);
+
+            const handler = () => {
+              clearTimeout(state.timeout);
+              state.timeout = setTimeout(() => {
+                const top = el.scrollTop;
+                const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight);
+                const scrollPercentage = Math.round((top / maxScroll) * 100);
+
+                if (Math.abs(top - state.lastTop) > SCROLL_DELTA_PX) {
+                  this.track("scroll", {
+                    semanticGroup: this.getSemanticGroup(el),
+                    id: this.generateGlobalEventId("scroll", {
+                      scrollPercentage: scrollPercentage,
+                      scrollContainerId: containerId,
+                    }),
+                    type: "scroll",
+                    action: "scroll",
+                    value: scrollPercentage.toString(),
+                  });
+                  state.lastTop = top;
+                }
+              }, SCROLL_IDLE_MS);
+            };
+
+            el.addEventListener("scroll", handler, { passive: true });
+            attachedHandlers.set(el, handler);
+          });
+        };
+
+        const performInitialScan = () => {
+          document.querySelectorAll("*").forEach(considerElement);
+          scheduleReconcile();
+        };
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", performInitialScan);
+        } else {
+          performInitialScan();
+        }
+
+        const mutationObserver = new MutationObserver((mutations) => {
+          let touched = false;
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === 1) {
+                considerElement(node);
+                if (node.querySelectorAll) {
+                  node.querySelectorAll("*").forEach(considerElement);
+                }
+                touched = true;
+              }
+            });
+            mutation.removedNodes.forEach((node) => {
+              purgeSubtree(node);
+              touched = true;
+            });
+          });
+          if (touched) scheduleReconcile();
+        });
+
+        mutationObserver.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+        });
+
+        const rescanScrollContainers = () => {
+          document.querySelectorAll("*").forEach(considerElement);
+          scheduleReconcile();
+        };
+        if (document.readyState === "complete") {
+          rescanScrollContainers();
+        } else {
+          window.addEventListener("load", rescanScrollContainers);
+        }
+
+        window.addEventListener("beforeunload", () => {
+          clearTimeout(reconcileTimer);
+          attachedHandlers.forEach((handler, el) => {
+            const st = scrollState.get(el);
+            if (st && st.timeout) clearTimeout(st.timeout);
+            el.removeEventListener("scroll", handler, { passive: true });
+          });
+          attachedHandlers.clear();
+        });
+      }
   
       setupFormTracking() {
         document.addEventListener("submit", (event) => {
@@ -2606,6 +2831,11 @@
         if (eventType === "page_view" || eventType === "viewport_size") {
           const currentPath = this.getCurrentPath();
           uniqueKey += `_${this.hashString(currentPath)}`;
+        }
+
+        // For nested scroll containers, disambiguate event IDs
+        if (eventType === "scroll" && additionalData.scrollContainerId) {
+          uniqueKey += `_c_${this.hashString(additionalData.scrollContainerId)}`;
         }
 
         // For scroll events, include scroll percentage
