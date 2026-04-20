@@ -2695,6 +2695,11 @@
 
         if (!isFormControl) return false;
 
+        // Radio/checkbox-like inputs and <select> dropdowns only emit predefined option
+        // labels/values (not free-form user input), so they are never treated as sensitive
+        // even when their name is "country", "state", etc.
+        if (tag === "SELECT") return false;
+
         // textareas and contenteditable are always free-form text -> treat as sensitive
         if (tag === "TEXTAREA" || el.isContentEditable === true) return true;
 
