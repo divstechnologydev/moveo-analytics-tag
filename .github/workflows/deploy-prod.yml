@@ -3,6 +3,7 @@ name: Deploy Moveo Analytics Tag - Production
 on:
   release:
     types: [published]
+  workflow_dispatch: # Run manually: Actions → workflow → Run workflow
 
 permissions:
   id-token: write
