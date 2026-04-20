@@ -4,8 +4,22 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.16"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.17"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
+
+    const REDACTED_VALUE = "[REDACTED]";
+
+    // Name/id/placeholder/aria-label fragments that indicate a sensitive field
+    const SENSITIVE_NAME_REGEX = /(address|street|city|state|zip|postal|region|country|firstname|first[_-]?name|lastname|last[_-]?name|fullname|full[_-]?name|(^|[_-])name([_-]|$)|email|phone|tel|mobile|dob|birth|ssn|tax|vat|pib|jmbg|oib|iban|card|cc[_-]?num|cardnum|cvv|cvc|security[_-]?code|passport|license)/i;
+
+    // WHATWG autofill tokens that indicate a sensitive field
+    const SENSITIVE_AUTOCOMPLETE_REGEX = /^(street-address|address-line[1-3]|address-level[1-4]|postal-code|country|country-name|name|given-name|additional-name|family-name|honorific-prefix|honorific-suffix|nickname|organization|email|tel|tel-[a-z-]+|bday|bday-[a-z]+|cc-[a-z-]+|new-password|current-password|one-time-code)$/i;
+
+    // Input types that are always sensitive
+    const SENSITIVE_INPUT_TYPES = new Set(["password", "email", "tel"]);
+
+    // CSS selectors for containers whose subtree text is sensitive (even without inputs, e.g. rendered addresses)
+    const SENSITIVE_CONTAINER_SELECTOR = 'address, [itemtype*="PostalAddress"], .woocommerce-customer-details, .woocommerce-customer-details address, .customer_details, [class*="billing_address"], [class*="shipping_address"], [class*="customer-address"]';
   
     /**
      * Core MoveoOne Web Tracker
@@ -1243,8 +1257,20 @@
           // For links, use the link text or href if no text
           value =
             (el.innerText || el.textContent || "").trim() || el.href || "link";
+        } else if (el.matches("input:not([type=button]):not([type=submit]):not([type=reset])")) {
+          // For free-text form inputs, never send the raw user-entered value.
+          // Redact when sensitive AND has a value; otherwise fall back to structural label.
+          const hasValue = typeof el.value === "string" && el.value.length > 0;
+          if (hasValue && this.isSensitiveField(el)) {
+            value = REDACTED_VALUE;
+          } else if (hasValue) {
+            // Non-sensitive text-like input with a value: still prefer structural label to avoid accidental leaks
+            value = el.placeholder || el.type || "input";
+          } else {
+            value = el.placeholder || el.type || "input";
+          }
         } else if (el.matches('button,input,[role="button"]')) {
-          // For buttons, use text content, value, or aria-label
+          // For buttons (including input[type=button|submit|reset]), use text content, value, or aria-label
           value =
             (
               el.innerText ||
@@ -1255,9 +1281,6 @@
         } else if (el.matches("h1,h2,h3")) {
           // For headings, use the text content
           value = (el.innerText || el.textContent || "").trim() || "heading";
-        } else if (el.matches("input:not([type=button]):not([type=submit])")) {
-          // For form inputs, use type or placeholder
-          value = el.placeholder || el.type || "input";
         } else if (el.matches("select")) {
           // For select dropdowns, use name or selected option
           const selectedOption = el.options[el.selectedIndex];
@@ -1289,7 +1312,12 @@
         }
   
         // Don't limit value length for event data - pass full content
-  
+
+        // Redact values originating from sensitive containers (e.g. rendered address blocks)
+        if (value && value !== REDACTED_VALUE && this.isSensitiveContainer(el)) {
+          value = REDACTED_VALUE;
+        }
+
         // Create impression event with proper structure
         const data = {
           semanticGroup: this.getSemanticGroup(el),
@@ -1805,8 +1833,12 @@
   
           // Set timeout to track sustained hover
           hoverTimeout = setTimeout(() => {
-            const elementText = this.getElementFullText(target);
-  
+            const isSensitive =
+              this.isSensitiveField(target) || this.isSensitiveContainer(target);
+            const elementText = isSensitive
+              ? REDACTED_VALUE
+              : this.getElementFullText(target);
+
             const data = {
               semanticGroup: this.getSemanticGroup(target),
               id: this.generateStableElementId(target),
@@ -1814,7 +1846,7 @@
               action: "hover",
               value: elementText,
             };
-  
+
             this.track("hover", data);
           }, HOVER_DELAY);
         });
@@ -2235,9 +2267,14 @@
             }
           }
   
-          // Get the text content of the clicked element
-          const elementText = this.getElementFullText(interactiveElement);
-  
+          // Get the text content of the clicked element (redact if sensitive)
+          const isSensitiveClick =
+            this.isSensitiveField(interactiveElement) ||
+            this.isSensitiveContainer(interactiveElement);
+          const elementText = isSensitiveClick
+            ? REDACTED_VALUE
+            : this.getElementFullText(interactiveElement);
+
           const data = {
             semanticGroup: this.getSemanticGroup(interactiveElement),
             id: this.generateStableElementId(interactiveElement),
@@ -2598,12 +2635,14 @@
           if (
             ["select", "input", "textarea"].includes(target.tagName.toLowerCase())
           ) {
+            const isSensitiveChange =
+              target.type === "password" || this.isSensitiveField(target);
             this.track("form_change", {
               semanticGroup: this.getSemanticGroup(target),
               id: this.generateStableElementId(target),
               type: target.type || target.tagName.toLowerCase(),
               action: "form_change",
-              value: target.type === "password" ? "[REDACTED]" : target.value,
+              value: isSensitiveChange ? REDACTED_VALUE : target.value,
             });
           }
         });
@@ -2643,6 +2682,97 @@
         });
       }
   
+      // Detect free-text form fields that likely contain PII (address, name, email, phone, etc.)
+      isSensitiveField(el) {
+        if (!el || el.nodeType !== 1) return false;
+
+        const tag = el.tagName;
+        const isFormControl =
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          (el.isContentEditable === true);
+
+        if (!isFormControl) return false;
+
+        // textareas and contenteditable are always free-form text -> treat as sensitive
+        if (tag === "TEXTAREA" || el.isContentEditable === true) return true;
+
+        if (tag === "INPUT") {
+          const inputType = (el.type || "text").toLowerCase();
+          if (SENSITIVE_INPUT_TYPES.has(inputType)) return true;
+          // Non-text inputs (checkbox, radio, submit, button, file, color, range, etc.) are safe
+          const textLikeTypes = new Set([
+            "text", "search", "url", "number", "date", "datetime-local",
+            "month", "week", "time"
+          ]);
+          if (!textLikeTypes.has(inputType)) return false;
+        }
+
+        // Check identifying attributes
+        const autocomplete = (el.getAttribute && el.getAttribute("autocomplete")) || "";
+        if (autocomplete) {
+          // autocomplete may contain tokens like "shipping street-address"
+          const tokens = autocomplete.split(/\s+/);
+          for (let i = 0; i < tokens.length; i++) {
+            if (SENSITIVE_AUTOCOMPLETE_REGEX.test(tokens[i])) return true;
+          }
+        }
+
+        const name = el.name || "";
+        const id = el.id || "";
+        const placeholder = (el.getAttribute && el.getAttribute("placeholder")) || "";
+        const ariaLabel = (el.getAttribute && el.getAttribute("aria-label")) || "";
+        if (SENSITIVE_NAME_REGEX.test(name) ||
+            SENSITIVE_NAME_REGEX.test(id) ||
+            SENSITIVE_NAME_REGEX.test(placeholder) ||
+            SENSITIVE_NAME_REGEX.test(ariaLabel)) {
+          return true;
+        }
+
+        // Check associated <label for="...">
+        try {
+          if (id && document.querySelector) {
+            const escapedId = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/"/g, '\\"');
+            const lbl = document.querySelector(`label[for="${escapedId}"]`);
+            if (lbl && SENSITIVE_NAME_REGEX.test((lbl.textContent || "").trim())) return true;
+          }
+        } catch (_) { /* ignore selector errors */ }
+
+        // Check ancestor <label>
+        let anc = el.parentElement;
+        while (anc) {
+          if (anc.tagName === "LABEL") {
+            if (SENSITIVE_NAME_REGEX.test((anc.textContent || "").trim())) return true;
+            break;
+          }
+          anc = anc.parentElement;
+        }
+
+        return false;
+      }
+
+      // Detect containers whose rendered text is likely PII (e.g. rendered address blocks, or any node wrapping sensitive fields)
+      isSensitiveContainer(el) {
+        if (!el || el.nodeType !== 1) return false;
+        try {
+          if (el.matches && el.matches(SENSITIVE_CONTAINER_SELECTOR)) return true;
+          if (el.closest && el.closest(SENSITIVE_CONTAINER_SELECTOR)) return true;
+        } catch (_) { /* ignore */ }
+
+        // If the element's subtree contains a sensitive form field, treat the container as sensitive
+        try {
+          if (el.querySelectorAll) {
+            const candidates = el.querySelectorAll("input, textarea, select, [contenteditable='true']");
+            for (let i = 0; i < candidates.length; i++) {
+              if (this.isSensitiveField(candidates[i])) return true;
+            }
+          }
+        } catch (_) { /* ignore */ }
+
+        return false;
+      }
+
       getElementPath(element) {
         const path = [];
         while (element && element.nodeType === Node.ELEMENT_NODE) {
