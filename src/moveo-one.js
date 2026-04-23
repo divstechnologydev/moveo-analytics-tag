@@ -1993,10 +1993,11 @@
       setupPageUnloadTracking() {
         // Track when user leaves the page
         window.addEventListener("beforeunload", () => {
-          // Send any remaining events immediately
+          // Send any remaining events immediately; drain buffer like flush() so events are not resent later
           if (this.buffer.length > 0) {
-            // Use optimized approach for reliable delivery during page unload
-            const data = JSON.stringify({ events: [...this.buffer] });
+            const dataToSend = [...this.buffer];
+            this.buffer = [];
+            const data = JSON.stringify({ events: dataToSend });
             fetch(API_URL, {
               method: "POST",
               headers: {
@@ -2019,9 +2020,11 @@
   
         // Backup: Also listen for pagehide event (more reliable than beforeunload)
         window.addEventListener("pagehide", () => {
-          // Send any remaining events immediately
+          // Send any remaining events immediately; drain buffer like flush() so events are not resent later
           if (this.buffer.length > 0) {
-            const data = JSON.stringify({ events: [...this.buffer] });
+            const dataToSend = [...this.buffer];
+            this.buffer = [];
+            const data = JSON.stringify({ events: dataToSend });
             fetch(API_URL, {
               method: "POST",
               headers: {
