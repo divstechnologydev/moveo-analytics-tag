@@ -31,21 +31,24 @@ You can track your application version by setting it during initialization:
 
 ### Deployment type (static website vs web app)
 
-You can set the deployment type to control impression (appear/disappear) tracking:
+**Detailed tracking** (viewport **appear** / **disappear** events) is controlled only by **`exclude_detailed_tracking`**. If you omit that option, it defaults to **`false`** for **`STATIC_WEBSITE`** (impressions on) and **`true`** for **`WEB_APP`** (impressions off), so existing integrations keep the same behavior without changes.
 
-- **`STATIC_WEBSITE`** (default) — The library tracks when elements enter and leave the viewport and sends appear/disappear events to the API. You can set **`exclude_detailed_tracking`** to `true` (default `false`) to disable appear/disappear tracking while keeping type as static website.
-- **`WEB_APP`** — Appear and disappear events are not sent. All other tracking (clicks, links, media, viewport, page view, etc.) works as usual. Use this for single-page or app-like experiences where viewport impressions are not needed. With `WEB_APP` you can also send user data from storage (e.g. user ID) in session metadata for cross-session tracking and model creation.
+- **`STATIC_WEBSITE`** (default) — Typical multi-page sites. By default, appear/disappear events are sent. Set **`exclude_detailed_tracking`** to **`true`** to turn them off.
+- **`WEB_APP`** — For single-page or app-like experiences. By default, appear/disappear are off (`exclude_detailed_tracking` defaults to **`true`**). Set **`exclude_detailed_tracking`** to **`false`** if you want viewport impressions. All other tracking (clicks, links, media, viewport size, page view, etc.) works the same either way. With **`WEB_APP`** you can also send user data from storage (e.g. user ID) in session metadata for cross-session tracking and model creation.
 
 ```html
 <script>
   // Static website (default): impression observer runs, appear/disappear sent
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE');
 
-  // Static website but skip appear/disappear (same as WEB_APP for that part only)
+  // Static website: skip appear/disappear
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE', { type: 'STATIC_WEBSITE', exclude_detailed_tracking: true });
 
-  // Web app: no appear/disappear events; all other tracking unchanged
+  // Web app: default is no appear/disappear; other tracking unchanged
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE', { type: 'WEB_APP' });
+
+  // Web app: enable appear/disappear explicitly
+  const moveo = MoveoOne.init('YOUR_TOKEN_HERE', { type: 'WEB_APP', exclude_detailed_tracking: false });
 </script>
 ```
 
@@ -75,7 +78,7 @@ If you don't pass an option, the following defaults apply:
 | Option | Default |
 |--------|---------|
 | `type` | `'STATIC_WEBSITE'` |
-| `exclude_detailed_tracking` | `false` |
+| `exclude_detailed_tracking` | `false` if `type` is `'STATIC_WEBSITE'`, `true` if `type` is `'WEB_APP'` (when omitted) |
 | `storageSource` | `'local'` |
 | `userDataKeys` | `[]` |
 | `calculateLatency` | `true` |
@@ -88,7 +91,7 @@ If you don't pass an option, the following defaults apply:
 <script>
   const moveo = MoveoOne.init('YOUR_TOKEN_HERE', {
     type: 'STATIC_WEBSITE',           // default: 'STATIC_WEBSITE'
-    exclude_detailed_tracking: false, // default: false
+    exclude_detailed_tracking: false, // omit: false for STATIC_WEBSITE, true for WEB_APP
     storageSource: 'local',           // default: 'local' — used only when type is 'WEB_APP'
     userDataKeys: [],                 // default: [] — used only when type is 'WEB_APP'
     appVersion: '1.0.0',             // optional; no default
