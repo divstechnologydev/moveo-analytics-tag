@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.17"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.18"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
@@ -547,10 +547,10 @@
   
       // Send impression event with specific timestamp
       sendAutoImpressionWithTimestamp(el, rect, action, timestamp) {
-        if ((this.type === "WEB_APP" || this.exclude_detailed_tracking) && (action === "appear" || action === "disappear")) return;
+        if (this.exclude_detailed_tracking && (action === "appear" || action === "disappear")) return;
         // Determine the element value based on type
         let value = "";
-  
+
         if (el.matches("img")) {
           value =
             el.alt ||
@@ -1072,7 +1072,7 @@
       }
   
       initImpressionObserver() {
-        if (this.type === "WEB_APP" || this.exclude_detailed_tracking) return;
+        if (this.exclude_detailed_tracking) return;
   
         // Configuration
         const IO_THRESHOLD = 0.2; // 20% visible
@@ -1220,7 +1220,7 @@
       }
   
       sendAutoImpression(el, rect, action) {
-        if ((this.type === "WEB_APP" || this.exclude_detailed_tracking) && (action === "appear" || action === "disappear")) return;
+        if (this.exclude_detailed_tracking && (action === "appear" || action === "disappear")) return;
         // Check if session is ready, if not queue the impression
         if (!this.started) {
           // Queue impression events until session is ready
@@ -1993,10 +1993,11 @@
       setupPageUnloadTracking() {
         // Track when user leaves the page
         window.addEventListener("beforeunload", () => {
-          // Send any remaining events immediately
+          // Send any remaining events immediately; drain buffer like flush() so events are not resent later
           if (this.buffer.length > 0) {
-            // Use optimized approach for reliable delivery during page unload
-            const data = JSON.stringify({ events: [...this.buffer] });
+            const dataToSend = [...this.buffer];
+            this.buffer = [];
+            const data = JSON.stringify({ events: dataToSend });
             fetch(API_URL, {
               method: "POST",
               headers: {
@@ -2019,9 +2020,11 @@
   
         // Backup: Also listen for pagehide event (more reliable than beforeunload)
         window.addEventListener("pagehide", () => {
-          // Send any remaining events immediately
+          // Send any remaining events immediately; drain buffer like flush() so events are not resent later
           if (this.buffer.length > 0) {
-            const data = JSON.stringify({ events: [...this.buffer] });
+            const dataToSend = [...this.buffer];
+            this.buffer = [];
+            const data = JSON.stringify({ events: dataToSend });
             fetch(API_URL, {
               method: "POST",
               headers: {
@@ -3243,13 +3246,18 @@
         const rawKeys = Array.isArray(options.userDataKeys) ? options.userDataKeys : [];
         instance.userDataKeys = rawKeys.filter((k) => typeof k === "string" && k.trim() !== "");
 
-        // exclude_detailed_tracking: when true, skip appear/disappear (STATIC_WEBSITE only)
+        // exclude_detailed_tracking: when true, skip appear/disappear. Omitted: false for STATIC_WEBSITE, true for WEB_APP.
         const requestedExclude = options.exclude_detailed_tracking;
-        instance.exclude_detailed_tracking = typeof requestedExclude === "boolean" ? requestedExclude : false;
-        if (requestedExclude !== undefined && typeof requestedExclude !== "boolean" && LOGGING_ENABLED) {
-          console.warn(
-            "MoveoOne: exclude_detailed_tracking must be a boolean; using false."
-          );
+        const defaultExcludeDetailed = instance.type === "WEB_APP";
+        if (typeof requestedExclude === "boolean") {
+          instance.exclude_detailed_tracking = requestedExclude;
+        } else {
+          instance.exclude_detailed_tracking = defaultExcludeDetailed;
+          if (requestedExclude !== undefined && LOGGING_ENABLED) {
+            console.warn(
+              `MoveoOne: exclude_detailed_tracking must be a boolean; using default for type (${defaultExcludeDetailed}).`
+            );
+          }
         }
   
         // Define allowed meta fields (libVersion is automatically included and protected)
