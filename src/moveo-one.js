@@ -1507,7 +1507,7 @@
         }
 
         const rawMoveoId = this.getMoveoDataAttrFromAncestors(
-          element,
+          element.parentElement,
           DATA_MOVEO_ELEMENT_ID
         );
         if (rawMoveoId != null) {

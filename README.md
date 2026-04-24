@@ -118,13 +118,13 @@ Adding attributes later only affects nodes where they appear.
 
 ### Inheritance
 
-For **semantic group** (`sg`) only, the library walks **up** from the element that fired the event (including that element) and uses the **first** non-empty `data-moveo-element-id` value. Descendants therefore inherit that `sg` from a post/card wrapper unless a closer ancestor defines another id.
+For **semantic group** (`sg`) only, the library walks **up** from the **parent** of the element that fired the event (the event target’s own `data-moveo-element-id` is **not** used for `sg`) and uses the **first** non-empty `data-moveo-element-id` value on that ancestor chain. Descendants therefore inherit that `sg` from a post/card wrapper unless a closer ancestor defines another id. The event target’s Moveo id still applies to **`eID`** on that element when set (see below).
 
 **Event type** (`eT`) from `data-moveo-element-type` and **value** (`eV`) from `data-moveo-element-value` are **not** inherited: each applies only on the **same element** that emits the event (no parent or child lookup).
 
 ### `data-moveo-element-id`
 
-- **Semantic group (`sg`)**: Nearest non-empty value (walking up) is normalized with the **same helper as `eID`** (trim + `cleanSemanticGroupName`). If none is found or the value is not usable after cleaning, the usual section / `div[id]` / landmark logic applies.
+- **Semantic group (`sg`)**: Nearest non-empty value **on ancestors only** (walking up from `parentElement`) is normalized with the **same helper as `eID`** (trim + `cleanSemanticGroupName`). The attribute on the event target itself does not set `sg`. If none is found or the value is not usable after cleaning, the usual section / `div[id]` / landmark logic applies.
 - **Stable element id (`eID`)**: Only the attribute on **that specific element** matters. When it is non-empty, `eID` uses the **same normalization as `sg`** (one shared code path: trim → `cleanSemanticGroupName`; no path hash suffix). If the value is not usable after cleaning, legacy `eID` logic is used instead. If both HTML `id` and `data-moveo-element-id` are set on the same node, **the Moveo attribute wins** for `eID`. If the attribute is missing or empty on that node, **legacy `eID` logic** runs unchanged (HTML `id` plus path hash, or content signature). Ancestor-only `data-moveo-element-id` affects `sg` for descendants but **does not** change their `eID` unless each node sets the attribute itself.
 
 Changing or adding this attribute will change `eID` for that element.
