@@ -1710,9 +1710,10 @@
       }
 
       getMoveoEventType(el, fallbackType) {
-        const raw = this.getMoveoDataAttrFromAncestors(el, DATA_MOVEO_ELEMENT_TYPE);
-        if (raw == null) return fallbackType;
-        const cleaned = this.cleanSemanticGroupName(raw);
+        if (!el || el.nodeType !== 1 || !el.getAttribute) return fallbackType;
+        const v = el.getAttribute(DATA_MOVEO_ELEMENT_TYPE);
+        if (v == null || String(v).trim() === "") return fallbackType;
+        const cleaned = this.cleanSemanticGroupName(String(v).trim());
         return cleaned !== "global" ? cleaned : fallbackType;
       }
 

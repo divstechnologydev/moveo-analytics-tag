@@ -106,7 +106,9 @@ You can annotate the DOM with `data-moveo-element-*` attributes to influence how
 
 ### Inheritance
 
-For **semantic group** (`sg`), **event type** (`eT`), and **value** (`eV`), the library walks **up** from the element that fired the event (including that element) and uses the **first** non-empty attribute value it finds. Inner elements therefore inherit from outer containers unless they define their own value.
+For **semantic group** (`sg`) and **value** (`eV`), the library walks **up** from the element that fired the event (including that element) and uses the **first** non-empty attribute value it finds. Inner elements therefore inherit those from outer containers unless they define their own.
+
+**Event type** (`eT`) from `data-moveo-element-type` is **not** inherited: it applies only to the **same element** that is emitting the event (the tracked node). Child elements do not pick up a type from parent markup.
 
 ### `data-moveo-element-id`
 
@@ -117,7 +119,7 @@ Changing or adding this attribute will change `eID` for that element, similar to
 
 ### `data-moveo-element-type`
 
-Overrides **`eT`** for element-driven events (impressions, clicks, hovers, media play/pause/complete, form submit/change). Values are normalized (same rules as semantic names). Global event types (e.g. `page_view`, `download`, `outbound_link`) are not overridden.
+Overrides **`eT`** for element-driven events (impressions, clicks, hovers, media play/pause/complete, form submit/change) **only when the attribute is set on that element itself**—not on ancestors. Values are normalized (same rules as semantic names). Global event types (e.g. `page_view`, `download`, `outbound_link`) are not overridden.
 
 ### `data-moveo-element-track`
 
