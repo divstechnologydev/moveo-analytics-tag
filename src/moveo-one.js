@@ -4,11 +4,13 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.20"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.22"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
 
+    // Optional DOM hooks; when absent site-wide, lookups return null / fallbacks and
+    // sg, eID, eT, eV, and impression eligibility match pre–Moveo-attribute behavior.
     const DATA_MOVEO_ELEMENT_ID = "data-moveo-element-id";
     const DATA_MOVEO_ELEMENT_TYPE = "data-moveo-element-type";
     const DATA_MOVEO_ELEMENT_TRACK = "data-moveo-element-track";
@@ -1508,9 +1510,11 @@
           element,
           DATA_MOVEO_ELEMENT_ID
         );
-        const normalizedMoveoId = this.normalizeDataMoveoElementId(rawMoveoId);
-        if (normalizedMoveoId != null) {
-          return normalizedMoveoId;
+        if (rawMoveoId != null) {
+          const normalizedMoveoId = this.normalizeDataMoveoElementId(rawMoveoId);
+          if (normalizedMoveoId != null) {
+            return normalizedMoveoId;
+          }
         }
   
         // Define semantic elements in priority order
@@ -1680,7 +1684,7 @@
         return cleaned || "global";
       }
 
-      // Shared normalization for data-moveo-element-id → sg and eID (via cleanSemanticGroupName).
+      // Shared normalization for data-moveo-element-id only; unused when clients omit those attrs.
       normalizeDataMoveoElementId(raw) {
         if (raw == null) return null;
         const t = String(raw).trim();
@@ -1729,9 +1733,10 @@
 
       applyMoveoElementValueOverride(el, computedValue, isRedacted) {
         if (isRedacted) return computedValue;
-        const raw = this.getMoveoDataAttrFromAncestors(el, DATA_MOVEO_ELEMENT_VALUE);
-        if (raw == null) return computedValue;
-        return raw;
+        if (!el || el.nodeType !== 1 || !el.getAttribute) return computedValue;
+        const v = el.getAttribute(DATA_MOVEO_ELEMENT_VALUE);
+        if (v == null || String(v).trim() === "") return computedValue;
+        return String(v).trim();
       }
   
       // Helper method to determine if an element should be tracked
@@ -2893,9 +2898,11 @@
         const section = this.getCurrentPath();
 
         const moveoOnSelf = this.getMoveoElementIdOnSelf(element);
-        const fromMoveo = this.normalizeDataMoveoElementId(moveoOnSelf);
-        if (fromMoveo != null) {
-          return fromMoveo;
+        if (moveoOnSelf != null) {
+          const fromMoveo = this.normalizeDataMoveoElementId(moveoOnSelf);
+          if (fromMoveo != null) {
+            return fromMoveo;
+          }
         }
         
         // For elements with stable IDs, include section to ensure uniqueness across pages

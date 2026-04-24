@@ -104,11 +104,23 @@ If you don't pass an option, the following defaults apply:
 
 You can annotate the DOM with `data-moveo-element-*` attributes to influence how events are sent. If you omit them, behavior is unchanged from previous library versions.
 
+### Backward compatibility (no Moveo attributes)
+
+If the page has **no** `data-moveo-element-*` attributes (or none on the ancestor chain where relevant):
+
+- **`sg`**: Only the original section / `div[id]` / landmark logic applies. The Moveo id walk finds nothing and adds no alternate grouping.
+- **`eID`**: Same as before: HTML `id` + path hash when present, otherwise the content signature hash. Nothing is read from `data-moveo-element-id` on the event target.
+- **`eT`**: Stays tag-based (or the existing form/input-type rules); `data-moveo-element-type` is not present on the element.
+- **`eV`**: Default extraction and redaction only; `data-moveo-element-value` is not set on the event element.
+- **Impression observation**: `data-moveo-element-track` is ignored unless present on that node; `shouldTrackElement` matches the old rules.
+
+Adding attributes later only affects nodes where they appear.
+
 ### Inheritance
 
-For **semantic group** (`sg`) and **value** (`eV`), the library walks **up** from the element that fired the event (including that element) and uses the **first** non-empty attribute value it finds. Inner elements therefore inherit those from outer containers unless they define their own.
+For **semantic group** (`sg`) only, the library walks **up** from the element that fired the event (including that element) and uses the **first** non-empty `data-moveo-element-id` value. Descendants therefore inherit that `sg` from a post/card wrapper unless a closer ancestor defines another id.
 
-**Event type** (`eT`) from `data-moveo-element-type` is **not** inherited: it applies only to the **same element** that is emitting the event (the tracked node). Child elements do not pick up a type from parent markup.
+**Event type** (`eT`) from `data-moveo-element-type` and **value** (`eV`) from `data-moveo-element-value` are **not** inherited: each applies only on the **same element** that emits the event (no parent or child lookup).
 
 ### `data-moveo-element-id`
 
@@ -127,7 +139,7 @@ Opt-in **viewport** tracking for a node: use when you want **appear** / **disapp
 
 ### `data-moveo-element-value`
 
-After the library computes the default **`eV`** (and after sensitive-field / sensitive-container redaction), if this attribute resolves to a non-empty string, it **replaces** `eV`. If the value would already be redacted (**`[REDACTED]`**), the override is **not** applied, so markup cannot replace redacted content.
+After the library computes the default **`eV`** (and after sensitive-field / sensitive-container redaction), if **this element** has a non-empty `data-moveo-element-value`, it **replaces** `eV`. Ancestors and descendants are not consulted. If the value would already be redacted (**`[REDACTED]`**), the override is **not** applied, so markup cannot replace redacted content.
 
 ## Prediction API
 
