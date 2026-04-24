@@ -100,6 +100,33 @@ If you don't pass an option, the following defaults apply:
 </script>
 ```
 
+## Custom data attributes (optional)
+
+You can annotate the DOM with `data-moveo-element-*` attributes to influence how events are sent. If you omit them, behavior is unchanged from previous library versions.
+
+### Inheritance
+
+For **semantic group** (`sg`), **event type** (`eT`), and **value** (`eV`), the library walks **up** from the element that fired the event (including that element) and uses the **first** non-empty attribute value it finds. Inner elements therefore inherit from outer containers unless they define their own value.
+
+### `data-moveo-element-id`
+
+- **Semantic group (`sg`)**: Nearest non-empty value (walking up) is normalized and used as `sg`. If none is found, the usual section / `div[id]` / landmark logic applies.
+- **Stable element id (`eID`)**: Only the attribute on **that specific element** matters. When it is non-empty, `eID` is generated the same way as for a normal HTML `id` (identifier plus path hash). If both HTML `id` and `data-moveo-element-id` are set on the same node, **the Moveo attribute wins** for `eID`. If the attribute is missing or empty on that node, **legacy `eID` logic** runs unchanged (HTML `id` or content signature). Ancestor-only `data-moveo-element-id` affects `sg` for descendants but **does not** change their `eID` unless each node sets the attribute itself.
+
+Changing or adding this attribute will change `eID` for that element, similar to changing HTML `id`.
+
+### `data-moveo-element-type`
+
+Overrides **`eT`** for element-driven events (impressions, clicks, hovers, media play/pause/complete, form submit/change). Values are normalized (same rules as semantic names). Global event types (e.g. `page_view`, `download`, `outbound_link`) are not overridden.
+
+### `data-moveo-element-track`
+
+Opt-in **viewport** tracking for a node: use when you want **appear** / **disappear** impressions on a container that would not normally qualify (e.g. a `div` with little or no text). The attribute must be present on the element to observe; treat it as boolean: enabled if the attribute is present with an empty value, `true`, or `1`; disabled for `false` or `0`. The element must have a non-zero layout size and not be `display: none` / `visibility: hidden`. This does **not** bypass **`exclude_detailed_tracking`**: when detailed tracking is off, no appear/disappear events are sent.
+
+### `data-moveo-element-value`
+
+After the library computes the default **`eV`** (and after sensitive-field / sensitive-container redaction), if this attribute resolves to a non-empty string, it **replaces** `eV`. If the value would already be redacted (**`[REDACTED]`**), the override is **not** applied, so markup cannot replace redacted content.
+
 ## Prediction API
 
 The MoveoOne library includes a prediction method that allows you to get real-time predictions from your trained models.
