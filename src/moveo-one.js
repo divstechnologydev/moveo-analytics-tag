@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.22"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.20"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
