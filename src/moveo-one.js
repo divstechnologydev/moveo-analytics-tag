@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.19"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.20"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
@@ -1504,12 +1504,13 @@
           return "global";
         }
 
-        const moveoScopeId = this.getMoveoDataAttrFromAncestors(
+        const rawMoveoId = this.getMoveoDataAttrFromAncestors(
           element,
           DATA_MOVEO_ELEMENT_ID
         );
-        if (moveoScopeId != null) {
-          return this.cleanSemanticGroupName(moveoScopeId);
+        const normalizedMoveoId = this.normalizeDataMoveoElementId(rawMoveoId);
+        if (normalizedMoveoId != null) {
+          return normalizedMoveoId;
         }
   
         // Define semantic elements in priority order
@@ -1677,6 +1678,15 @@
         }
   
         return cleaned || "global";
+      }
+
+      // Shared normalization for data-moveo-element-id → sg and eID (via cleanSemanticGroupName).
+      normalizeDataMoveoElementId(raw) {
+        if (raw == null) return null;
+        const t = String(raw).trim();
+        if (t === "") return null;
+        const cleaned = this.cleanSemanticGroupName(t);
+        return cleaned !== "global" ? cleaned : null;
       }
 
       getMoveoDataAttrFromAncestors(el, attrName) {
@@ -2883,9 +2893,9 @@
         const section = this.getCurrentPath();
 
         const moveoOnSelf = this.getMoveoElementIdOnSelf(element);
-        if (moveoOnSelf != null) {
-          const sectionHash = this.hashString(section);
-          return this.cleanElementId(`${moveoOnSelf}_${sectionHash}`);
+        const fromMoveo = this.normalizeDataMoveoElementId(moveoOnSelf);
+        if (fromMoveo != null) {
+          return fromMoveo;
         }
         
         // For elements with stable IDs, include section to ensure uniqueness across pages

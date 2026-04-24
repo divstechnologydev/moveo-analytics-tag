@@ -112,10 +112,10 @@ For **semantic group** (`sg`) and **value** (`eV`), the library walks **up** fro
 
 ### `data-moveo-element-id`
 
-- **Semantic group (`sg`)**: Nearest non-empty value (walking up) is normalized and used as `sg`. If none is found, the usual section / `div[id]` / landmark logic applies.
-- **Stable element id (`eID`)**: Only the attribute on **that specific element** matters. When it is non-empty, `eID` is generated the same way as for a normal HTML `id` (identifier plus path hash). If both HTML `id` and `data-moveo-element-id` are set on the same node, **the Moveo attribute wins** for `eID`. If the attribute is missing or empty on that node, **legacy `eID` logic** runs unchanged (HTML `id` or content signature). Ancestor-only `data-moveo-element-id` affects `sg` for descendants but **does not** change their `eID` unless each node sets the attribute itself.
+- **Semantic group (`sg`)**: Nearest non-empty value (walking up) is normalized with the **same helper as `eID`** (trim + `cleanSemanticGroupName`). If none is found or the value is not usable after cleaning, the usual section / `div[id]` / landmark logic applies.
+- **Stable element id (`eID`)**: Only the attribute on **that specific element** matters. When it is non-empty, `eID` uses the **same normalization as `sg`** (one shared code path: trim → `cleanSemanticGroupName`; no path hash suffix). If the value is not usable after cleaning, legacy `eID` logic is used instead. If both HTML `id` and `data-moveo-element-id` are set on the same node, **the Moveo attribute wins** for `eID`. If the attribute is missing or empty on that node, **legacy `eID` logic** runs unchanged (HTML `id` plus path hash, or content signature). Ancestor-only `data-moveo-element-id` affects `sg` for descendants but **does not** change their `eID` unless each node sets the attribute itself.
 
-Changing or adding this attribute will change `eID` for that element, similar to changing HTML `id`.
+Changing or adding this attribute will change `eID` for that element.
 
 ### `data-moveo-element-type`
 
