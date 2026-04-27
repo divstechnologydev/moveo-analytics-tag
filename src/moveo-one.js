@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.19"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.20"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
@@ -556,8 +556,7 @@
       sendAutoImpressionWithTimestamp(el, rect, action, timestamp) {
         if (this.exclude_detailed_tracking && (action === "appear" || action === "disappear")) return;
         let value = this.computeImpressionDisplayValue(el);
-        const isRedacted = value === REDACTED_VALUE;
-        value = this.applyMoveoElementValueOverride(el, value, isRedacted);
+        value = this.applyMoveoElementValueOverride(el, value);
 
         const data = {
           semanticGroup: this.getSemanticGroup(el),
@@ -1296,8 +1295,7 @@
         }
   
         let value = this.computeImpressionDisplayValue(el);
-        const isRedacted = value === REDACTED_VALUE;
-        value = this.applyMoveoElementValueOverride(el, value, isRedacted);
+        value = this.applyMoveoElementValueOverride(el, value);
 
         const data = {
           semanticGroup: this.getSemanticGroup(el),
@@ -1731,12 +1729,11 @@
         return cleaned !== "global" ? cleaned : fallbackType;
       }
 
-      applyMoveoElementValueOverride(el, computedValue, isRedacted) {
-        if (isRedacted) return computedValue;
+      applyMoveoElementValueOverride(el, computedValue) {
         if (!el || el.nodeType !== 1 || !el.getAttribute) return computedValue;
         const v = el.getAttribute(DATA_MOVEO_ELEMENT_VALUE);
-        if (v == null || String(v).trim() === "") return computedValue;
-        return String(v).trim();
+        if (v != null && String(v).trim() !== "") return String(v).trim();
+        return computedValue;
       }
   
       // Helper method to determine if an element should be tracked
@@ -1898,11 +1895,7 @@
             let elementText = isSensitive
               ? REDACTED_VALUE
               : this.getElementFullText(target);
-            elementText = this.applyMoveoElementValueOverride(
-              target,
-              elementText,
-              elementText === REDACTED_VALUE
-            );
+            elementText = this.applyMoveoElementValueOverride(target, elementText);
 
             const data = {
               semanticGroup: this.getSemanticGroup(target),
@@ -2165,7 +2158,7 @@
                 id: mediaId,
                 type: this.getMoveoEventType(media, mediaType),
                 action: "media_play",
-                value: this.applyMoveoElementValueOverride(media, "", false),
+                value: this.applyMoveoElementValueOverride(media, ""),
               });
             });
   
@@ -2175,7 +2168,7 @@
                 id: mediaId,
                 type: this.getMoveoEventType(media, mediaType),
                 action: "media_pause",
-                value: this.applyMoveoElementValueOverride(media, "", false),
+                value: this.applyMoveoElementValueOverride(media, ""),
               });
             });
   
@@ -2185,7 +2178,7 @@
                 id: mediaId,
                 type: this.getMoveoEventType(media, mediaType),
                 action: "media_complete",
-                value: this.applyMoveoElementValueOverride(media, "", false),
+                value: this.applyMoveoElementValueOverride(media, ""),
               });
             });
           });
@@ -2347,8 +2340,7 @@
             : this.getElementFullText(interactiveElement);
           elementText = this.applyMoveoElementValueOverride(
             interactiveElement,
-            elementText,
-            elementText === REDACTED_VALUE
+            elementText
           );
 
           const data = {
@@ -2705,7 +2697,7 @@
             id: this.generateStableElementId(form),
             type: this.getMoveoEventType(form, "form"),
             action: "form_submit",
-            value: this.applyMoveoElementValueOverride(form, "", false),
+            value: this.applyMoveoElementValueOverride(form, ""),
           });
         });
   
@@ -2727,11 +2719,7 @@
                 target.type || target.tagName.toLowerCase()
               ),
               action: "form_change",
-              value: this.applyMoveoElementValueOverride(
-                target,
-                rawChangeValue,
-                isSensitiveChange
-              ),
+              value: this.applyMoveoElementValueOverride(target, rawChangeValue),
             });
           }
         });

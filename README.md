@@ -139,7 +139,7 @@ Opt-in **viewport** tracking for a node: use when you want **appear** / **disapp
 
 ### `data-moveo-element-value`
 
-After the library computes the default **`eV`** (and after sensitive-field / sensitive-container redaction), if **this element** has a non-empty `data-moveo-element-value`, it **replaces** `eV`. Ancestors and descendants are not consulted. If the value would already be redacted (**`[REDACTED]`**), the override is **not** applied, so markup cannot replace redacted content.
+If **this element** has a non-empty `data-moveo-element-value` (after trim), that string **replaces** `eV` for element-driven events—including when the default extraction would be **`[REDACTED]`** (sensitive field or container), so you can send an explicit, non-sensitive label (for example a field name or category) instead. Ancestors and descendants are not consulted. If the attribute is missing or empty, behavior is unchanged: the library uses the default **`eV`** (with sensitive-field / sensitive-container redaction as usual).
 
 ## Prediction API
 
