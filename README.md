@@ -100,6 +100,47 @@ If you don't pass an option, the following defaults apply:
 </script>
 ```
 
+## Custom data attributes (optional)
+
+You can annotate the DOM with `data-moveo-element-*` attributes to influence how events are sent. If you omit them, behavior is unchanged from previous library versions.
+
+### Backward compatibility (no Moveo attributes)
+
+If the page has **no** `data-moveo-element-*` attributes (or none on the ancestor chain where relevant):
+
+- **`sg`**: Only the original section / `div[id]` / landmark logic applies. The Moveo id walk finds nothing and adds no alternate grouping.
+- **`eID`**: Same as before: HTML `id` + path hash when present, otherwise the content signature hash. Nothing is read from `data-moveo-element-id` on the event target.
+- **`eT`**: Stays tag-based (or the existing form/input-type rules); `data-moveo-element-type` is not present on the element.
+- **`eV`**: Default extraction and redaction only; `data-moveo-element-value` is not set on the event element.
+- **Impression observation**: `data-moveo-element-track` is ignored unless present on that node; `shouldTrackElement` matches the old rules.
+
+Adding attributes later only affects nodes where they appear.
+
+### Inheritance
+
+For **semantic group** (`sg`) only, the library walks **up** from the **parent** of the element that fired the event (the event target’s own `data-moveo-element-id` is **not** used for `sg`) and uses the **first** non-empty `data-moveo-element-id` value on that ancestor chain. Descendants therefore inherit that `sg` from a post/card wrapper unless a closer ancestor defines another id. The event target’s Moveo id still applies to **`eID`** on that element when set (see below).
+
+**Event type** (`eT`) from `data-moveo-element-type` and **value** (`eV`) from `data-moveo-element-value` are **not** inherited: each applies only on the **same element** that emits the event (no parent or child lookup).
+
+### `data-moveo-element-id`
+
+- **Semantic group (`sg`)**: Nearest non-empty value **on ancestors only** (walking up from `parentElement`) is normalized with the **same helper as `eID`** (trim + `cleanSemanticGroupName`). The attribute on the event target itself does not set `sg`. If none is found or the value is not usable after cleaning, the usual section / `div[id]` / landmark logic applies.
+- **Stable element id (`eID`)**: Only the attribute on **that specific element** matters. When it is non-empty, `eID` uses the **same normalization as `sg`** (one shared code path: trim → `cleanSemanticGroupName`; no path hash suffix). If the value is not usable after cleaning, legacy `eID` logic is used instead. If both HTML `id` and `data-moveo-element-id` are set on the same node, **the Moveo attribute wins** for `eID`. If the attribute is missing or empty on that node, **legacy `eID` logic** runs unchanged (HTML `id` plus path hash, or content signature). Ancestor-only `data-moveo-element-id` affects `sg` for descendants but **does not** change their `eID` unless each node sets the attribute itself.
+
+Changing or adding this attribute will change `eID` for that element.
+
+### `data-moveo-element-type`
+
+Overrides **`eT`** for element-driven events (impressions, clicks, hovers, media play/pause/complete, form submit/change) **only when the attribute is set on that element itself**—not on ancestors. Values are normalized (same rules as semantic names). Global event types (e.g. `page_view`, `download`, `outbound_link`) are not overridden.
+
+### `data-moveo-element-track`
+
+Opt-in **viewport** tracking for a node: use when you want **appear** / **disappear** impressions on a container that would not normally qualify (e.g. a `div` with little or no text). The attribute must be present on the element to observe; treat it as boolean: enabled if the attribute is present with an empty value, `true`, or `1`; disabled for `false` or `0`. The element must have a non-zero layout size and not be `display: none` / `visibility: hidden`. This does **not** bypass **`exclude_detailed_tracking`**: when detailed tracking is off, no appear/disappear events are sent.
+
+### `data-moveo-element-value`
+
+After the library computes the default **`eV`** (and after sensitive-field / sensitive-container redaction), if **this element** has a non-empty `data-moveo-element-value`, it **replaces** `eV`. Ancestors and descendants are not consulted. If the value would already be redacted (**`[REDACTED]`**), the override is **not** applied, so markup cannot replace redacted content.
+
 ## Prediction API
 
 The MoveoOne library includes a prediction method that allows you to get real-time predictions from your trained models.

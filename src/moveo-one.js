@@ -4,10 +4,17 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.18"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.19"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
+
+    // Optional DOM hooks; when absent site-wide, lookups return null / fallbacks and
+    // sg, eID, eT, eV, and impression eligibility match pre–Moveo-attribute behavior.
+    const DATA_MOVEO_ELEMENT_ID = "data-moveo-element-id";
+    const DATA_MOVEO_ELEMENT_TYPE = "data-moveo-element-type";
+    const DATA_MOVEO_ELEMENT_TRACK = "data-moveo-element-track";
+    const DATA_MOVEO_ELEMENT_VALUE = "data-moveo-element-value";
 
     // Name/id/placeholder/aria-label fragments that indicate a sensitive field
     const SENSITIVE_NAME_REGEX = /(address|street|city|state|zip|postal|region|country|firstname|first[_-]?name|lastname|last[_-]?name|fullname|full[_-]?name|(^|[_-])name([_-]|$)|email|phone|tel|mobile|dob|birth|ssn|tax|vat|pib|jmbg|oib|iban|card|cc[_-]?num|cardnum|cvv|cvc|security[_-]?code|passport|license)/i;
@@ -548,45 +555,14 @@
       // Send impression event with specific timestamp
       sendAutoImpressionWithTimestamp(el, rect, action, timestamp) {
         if (this.exclude_detailed_tracking && (action === "appear" || action === "disappear")) return;
-        // Determine the element value based on type
-        let value = "";
+        let value = this.computeImpressionDisplayValue(el);
+        const isRedacted = value === REDACTED_VALUE;
+        value = this.applyMoveoElementValueOverride(el, value, isRedacted);
 
-        if (el.matches("img")) {
-          value =
-            el.alt ||
-            el.title ||
-            this.getFilenameFromUrl(el.currentSrc || el.src) ||
-            "image";
-        } else if (el.matches("video")) {
-          value =
-            el.title ||
-            this.getFilenameFromUrl(el.currentSrc || el.src) ||
-            "video";
-        } else if (el.matches("iframe")) {
-          value =
-            el.title || this.getFilenameFromUrl(el.src) || "embedded_content";
-        } else if (el.matches("a")) {
-          value =
-            (el.innerText || el.textContent || "").trim() || el.href || "link";
-        } else if (el.matches('button,input,[role="button"]')) {
-          value =
-            (
-              el.innerText ||
-              el.value ||
-              el.getAttribute("aria-label") ||
-              ""
-            ).trim() || "button";
-        } else if (el.matches("h1,h2,h3")) {
-          value = (el.innerText || el.textContent || "").trim() || "heading";
-        } else {
-          value = (el.innerText || el.textContent || "").trim() || "text";
-        }
-  
-                // Create impression event with proper structure and original timestamp
         const data = {
           semanticGroup: this.getSemanticGroup(el),
           id: this.generateStableElementId(el),
-          type: el.tagName.toLowerCase(),
+          type: this.getMoveoEventType(el, el.tagName.toLowerCase()),
           action: action,
           value: value,
         };
@@ -1218,6 +1194,92 @@
           pendingAppearEvents.clear();
         });
       }
+
+      computeImpressionDisplayValue(el) {
+        let value = "";
+
+        if (el.matches("img")) {
+          value =
+            el.alt ||
+            el.title ||
+            this.getFilenameFromUrl(el.currentSrc || el.src) ||
+            "image";
+        } else if (el.matches("video")) {
+          value =
+            el.title ||
+            this.getFilenameFromUrl(el.currentSrc || el.src) ||
+            "video";
+        } else if (el.matches("iframe")) {
+          value =
+            el.title || this.getFilenameFromUrl(el.src) || "embedded_content";
+        } else if (el.matches("a")) {
+          value =
+            (el.innerText || el.textContent || "").trim() || el.href || "link";
+        } else if (
+          el.matches(
+            "input:not([type=button]):not([type=submit]):not([type=reset])"
+          )
+        ) {
+          const hasValue = typeof el.value === "string" && el.value.length > 0;
+          if (hasValue && this.isSensitiveField(el)) {
+            value = REDACTED_VALUE;
+          } else if (hasValue) {
+            value = el.placeholder || el.type || "input";
+          } else {
+            value = el.placeholder || el.type || "input";
+          }
+        } else if (el.matches('button,input,[role="button"]')) {
+          value =
+            (
+              el.innerText ||
+              el.value ||
+              el.getAttribute("aria-label") ||
+              ""
+            ).trim() || "button";
+        } else if (el.matches("h1,h2,h3")) {
+          value = (el.innerText || el.textContent || "").trim() || "heading";
+        } else if (el.matches("select")) {
+          const selectedOption = el.options[el.selectedIndex];
+          value = selectedOption
+            ? selectedOption.text
+            : el.name || "select";
+        } else if (el.matches("textarea")) {
+          value = el.placeholder || el.name || "textarea";
+        } else if (el.matches("label")) {
+          value =
+            (el.innerText || el.textContent || "").trim() ||
+            el.getAttribute("for") ||
+            "label";
+        } else if (el.matches("summary")) {
+          value = (el.innerText || el.textContent || "").trim() || "summary";
+        } else if (el.matches("details")) {
+          value = (el.innerText || el.textContent || "").trim() || "details";
+        } else if (el.matches("audio")) {
+          value = el.title || this.getFilenameFromUrl(el.src) || "audio";
+        } else if (
+          el.matches('[role="checkbox"], [role="radio"], [role="switch"]')
+        ) {
+          value =
+            el.getAttribute("aria-label") ||
+            (el.innerText || el.textContent || "").trim() ||
+            el.getAttribute("role");
+        } else if (
+          el.matches('[role="tab"], [role="menuitem"], [role="link"]')
+        ) {
+          value =
+            (el.innerText || el.textContent || "").trim() ||
+            el.getAttribute("aria-label") ||
+            el.getAttribute("role");
+        } else {
+          value = (el.innerText || el.textContent || "").trim() || "text";
+        }
+
+        if (value && value !== REDACTED_VALUE && this.isSensitiveContainer(el)) {
+          value = REDACTED_VALUE;
+        }
+
+        return value;
+      }
   
       sendAutoImpression(el, rect, action) {
         if (this.exclude_detailed_tracking && (action === "appear" || action === "disappear")) return;
@@ -1233,98 +1295,16 @@
           return;
         }
   
-        // Determine the element value based on type
-        let value = "";
-  
-        if (el.matches("img")) {
-          // For images, use alt text, title, or fallback to src filename
-          value =
-            el.alt ||
-            el.title ||
-            this.getFilenameFromUrl(el.currentSrc || el.src) ||
-            "image";
-        } else if (el.matches("video")) {
-          // For videos, use title or fallback to src filename
-          value =
-            el.title ||
-            this.getFilenameFromUrl(el.currentSrc || el.src) ||
-            "video";
-        } else if (el.matches("iframe")) {
-          // For iframes (YouTube, Vimeo), use title or extract from src
-          value =
-            el.title || this.getFilenameFromUrl(el.src) || "embedded_content";
-        } else if (el.matches("a")) {
-          // For links, use the link text or href if no text
-          value =
-            (el.innerText || el.textContent || "").trim() || el.href || "link";
-        } else if (el.matches("input:not([type=button]):not([type=submit]):not([type=reset])")) {
-          // For free-text form inputs, never send the raw user-entered value.
-          // Redact when sensitive AND has a value; otherwise fall back to structural label.
-          const hasValue = typeof el.value === "string" && el.value.length > 0;
-          if (hasValue && this.isSensitiveField(el)) {
-            value = REDACTED_VALUE;
-          } else if (hasValue) {
-            // Non-sensitive text-like input with a value: still prefer structural label to avoid accidental leaks
-            value = el.placeholder || el.type || "input";
-          } else {
-            value = el.placeholder || el.type || "input";
-          }
-        } else if (el.matches('button,input,[role="button"]')) {
-          // For buttons (including input[type=button|submit|reset]), use text content, value, or aria-label
-          value =
-            (
-              el.innerText ||
-              el.value ||
-              el.getAttribute("aria-label") ||
-              ""
-            ).trim() || "button";
-        } else if (el.matches("h1,h2,h3")) {
-          // For headings, use the text content
-          value = (el.innerText || el.textContent || "").trim() || "heading";
-        } else if (el.matches("select")) {
-          // For select dropdowns, use name or selected option
-          const selectedOption = el.options[el.selectedIndex];
-          value = selectedOption ? selectedOption.text : (el.name || "select");
-        } else if (el.matches("textarea")) {
-          // For textareas, use placeholder or name
-          value = el.placeholder || el.name || "textarea";
-        } else if (el.matches("label")) {
-          // For labels, use text content or for attribute
-          value = (el.innerText || el.textContent || "").trim() || el.getAttribute('for') || "label";
-        } else if (el.matches("summary")) {
-          // For summary elements, use text content
-          value = (el.innerText || el.textContent || "").trim() || "summary";
-        } else if (el.matches("details")) {
-          // For details elements, use text content
-          value = (el.innerText || el.textContent || "").trim() || "details";
-        } else if (el.matches("audio")) {
-          // For audio elements, use title or src
-          value = el.title || this.getFilenameFromUrl(el.src) || "audio";
-        } else if (el.matches('[role="checkbox"], [role="radio"], [role="switch"]')) {
-          // For form controls with roles, use aria-label or text content
-          value = el.getAttribute('aria-label') || (el.innerText || el.textContent || "").trim() || el.getAttribute('role');
-        } else if (el.matches('[role="tab"], [role="menuitem"], [role="link"]')) {
-          // For navigation elements with roles, use text content or aria-label
-          value = (el.innerText || el.textContent || "").trim() || el.getAttribute('aria-label') || el.getAttribute('role');
-        } else {
-          // For text elements, use the text content
-          value = (el.innerText || el.textContent || "").trim() || "text";
-        }
-  
-        // Don't limit value length for event data - pass full content
+        let value = this.computeImpressionDisplayValue(el);
+        const isRedacted = value === REDACTED_VALUE;
+        value = this.applyMoveoElementValueOverride(el, value, isRedacted);
 
-        // Redact values originating from sensitive containers (e.g. rendered address blocks)
-        if (value && value !== REDACTED_VALUE && this.isSensitiveContainer(el)) {
-          value = REDACTED_VALUE;
-        }
-
-        // Create impression event with proper structure
         const data = {
           semanticGroup: this.getSemanticGroup(el),
           id: this.generateStableElementId(el),
-          type: el.tagName.toLowerCase(), // HTML tag name as type
-          action: action, // 'appear' or 'disappear'
-          value: value, // The actual content (text/alt/href)
+          type: this.getMoveoEventType(el, el.tagName.toLowerCase()),
+          action: action,
+          value: value,
         };
   
         this.track("impression", data);
@@ -1525,6 +1505,17 @@
         if (!element || element === document || element === window) {
           return "global";
         }
+
+        const rawMoveoId = this.getMoveoDataAttrFromAncestors(
+          element.parentElement,
+          DATA_MOVEO_ELEMENT_ID
+        );
+        if (rawMoveoId != null) {
+          const normalizedMoveoId = this.normalizeDataMoveoElementId(rawMoveoId);
+          if (normalizedMoveoId != null) {
+            return normalizedMoveoId;
+          }
+        }
   
         // Define semantic elements in priority order
         const otherSemanticElements = [
@@ -1692,6 +1683,61 @@
   
         return cleaned || "global";
       }
+
+      // Shared normalization for data-moveo-element-id only; unused when clients omit those attrs.
+      normalizeDataMoveoElementId(raw) {
+        if (raw == null) return null;
+        const t = String(raw).trim();
+        if (t === "") return null;
+        const cleaned = this.cleanSemanticGroupName(t);
+        return cleaned !== "global" ? cleaned : null;
+      }
+
+      getMoveoDataAttrFromAncestors(el, attrName) {
+        let cur = el;
+        while (cur && cur.nodeType === 1 && cur !== document.body) {
+          const v = cur.getAttribute && cur.getAttribute(attrName);
+          if (v != null && String(v).trim() !== "") {
+            return String(v).trim();
+          }
+          cur = cur.parentElement;
+        }
+        return null;
+      }
+
+      getMoveoElementIdOnSelf(el) {
+        if (!el || el.nodeType !== 1 || !el.getAttribute) return null;
+        const v = el.getAttribute(DATA_MOVEO_ELEMENT_ID);
+        if (v == null) return null;
+        const t = String(v).trim();
+        return t !== "" ? t : null;
+      }
+
+      isMoveoExplicitTrackTarget(el) {
+        if (!el || el.nodeType !== 1 || !el.hasAttribute) return false;
+        if (!el.hasAttribute(DATA_MOVEO_ELEMENT_TRACK)) return false;
+        const v = el.getAttribute(DATA_MOVEO_ELEMENT_TRACK);
+        if (v === null) return true;
+        const s = String(v).trim().toLowerCase();
+        if (s === "false" || s === "0") return false;
+        return true;
+      }
+
+      getMoveoEventType(el, fallbackType) {
+        if (!el || el.nodeType !== 1 || !el.getAttribute) return fallbackType;
+        const v = el.getAttribute(DATA_MOVEO_ELEMENT_TYPE);
+        if (v == null || String(v).trim() === "") return fallbackType;
+        const cleaned = this.cleanSemanticGroupName(String(v).trim());
+        return cleaned !== "global" ? cleaned : fallbackType;
+      }
+
+      applyMoveoElementValueOverride(el, computedValue, isRedacted) {
+        if (isRedacted) return computedValue;
+        if (!el || el.nodeType !== 1 || !el.getAttribute) return computedValue;
+        const v = el.getAttribute(DATA_MOVEO_ELEMENT_VALUE);
+        if (v == null || String(v).trim() === "") return computedValue;
+        return String(v).trim();
+      }
   
       // Helper method to determine if an element should be tracked
       shouldTrackElement(element) {
@@ -1706,6 +1752,20 @@
           "TITLE",
         ];
         if (skipTags.includes(element.tagName)) return false;
+
+        if (this.isMoveoExplicitTrackTarget(element)) {
+          if (element.id && element.id.includes("moveo")) return false;
+          if (element.className && String(element.className).includes("moveo")) {
+            return false;
+          }
+          const style = window.getComputedStyle(element);
+          if (style.display === "none" || style.visibility === "hidden") {
+            return false;
+          }
+          const rect = element.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return false;
+          return true;
+        }
 
         // Define interactive elements
         const interactiveTags = [
@@ -1835,14 +1895,19 @@
           hoverTimeout = setTimeout(() => {
             const isSensitive =
               this.isSensitiveField(target) || this.isSensitiveContainer(target);
-            const elementText = isSensitive
+            let elementText = isSensitive
               ? REDACTED_VALUE
               : this.getElementFullText(target);
+            elementText = this.applyMoveoElementValueOverride(
+              target,
+              elementText,
+              elementText === REDACTED_VALUE
+            );
 
             const data = {
               semanticGroup: this.getSemanticGroup(target),
               id: this.generateStableElementId(target),
-              type: target.tagName.toLowerCase(),
+              type: this.getMoveoEventType(target, target.tagName.toLowerCase()),
               action: "hover",
               value: elementText,
             };
@@ -2098,8 +2163,9 @@
               this.track("media_play", {
                 semanticGroup: this.getSemanticGroup(media),
                 id: mediaId,
-                type: mediaType,
+                type: this.getMoveoEventType(media, mediaType),
                 action: "media_play",
+                value: this.applyMoveoElementValueOverride(media, "", false),
               });
             });
   
@@ -2107,8 +2173,9 @@
               this.track("media_pause", {
                 semanticGroup: this.getSemanticGroup(media),
                 id: mediaId,
-                type: mediaType,
+                type: this.getMoveoEventType(media, mediaType),
                 action: "media_pause",
+                value: this.applyMoveoElementValueOverride(media, "", false),
               });
             });
   
@@ -2116,8 +2183,9 @@
               this.track("media_complete", {
                 semanticGroup: this.getSemanticGroup(media),
                 id: mediaId,
-                type: mediaType,
+                type: this.getMoveoEventType(media, mediaType),
                 action: "media_complete",
+                value: this.applyMoveoElementValueOverride(media, "", false),
               });
             });
           });
@@ -2274,14 +2342,22 @@
           const isSensitiveClick =
             this.isSensitiveField(interactiveElement) ||
             this.isSensitiveContainer(interactiveElement);
-          const elementText = isSensitiveClick
+          let elementText = isSensitiveClick
             ? REDACTED_VALUE
             : this.getElementFullText(interactiveElement);
+          elementText = this.applyMoveoElementValueOverride(
+            interactiveElement,
+            elementText,
+            elementText === REDACTED_VALUE
+          );
 
           const data = {
             semanticGroup: this.getSemanticGroup(interactiveElement),
             id: this.generateStableElementId(interactiveElement),
-            type: interactiveElement.tagName.toLowerCase(),
+            type: this.getMoveoEventType(
+              interactiveElement,
+              interactiveElement.tagName.toLowerCase()
+            ),
             action: "click",
             value: elementText,
           };
@@ -2627,9 +2703,9 @@
           this.trackImmediate("form_submit", {
             semanticGroup: this.getSemanticGroup(form),
             id: this.generateStableElementId(form),
-            type: "form",
+            type: this.getMoveoEventType(form, "form"),
             action: "form_submit",
-            value: "",
+            value: this.applyMoveoElementValueOverride(form, "", false),
           });
         });
   
@@ -2640,12 +2716,22 @@
           ) {
             const isSensitiveChange =
               target.type === "password" || this.isSensitiveField(target);
+            const rawChangeValue = isSensitiveChange
+              ? REDACTED_VALUE
+              : target.value;
             this.track("form_change", {
               semanticGroup: this.getSemanticGroup(target),
               id: this.generateStableElementId(target),
-              type: target.type || target.tagName.toLowerCase(),
+              type: this.getMoveoEventType(
+                target,
+                target.type || target.tagName.toLowerCase()
+              ),
               action: "form_change",
-              value: isSensitiveChange ? REDACTED_VALUE : target.value,
+              value: this.applyMoveoElementValueOverride(
+                target,
+                rawChangeValue,
+                isSensitiveChange
+              ),
             });
           }
         });
@@ -2810,6 +2896,14 @@
       // Generate stable, unique element ID that persists across page loads
       generateStableElementId(element) {
         const section = this.getCurrentPath();
+
+        const moveoOnSelf = this.getMoveoElementIdOnSelf(element);
+        if (moveoOnSelf != null) {
+          const fromMoveo = this.normalizeDataMoveoElementId(moveoOnSelf);
+          if (fromMoveo != null) {
+            return fromMoveo;
+          }
+        }
         
         // For elements with stable IDs, include section to ensure uniqueness across pages
         if (element.id && element.id.trim()) {
