@@ -1167,9 +1167,22 @@
           performInitialScan();
         }
   
-        // SPA / lazy-load support: watch for new nodes
+        // SPA / lazy-load support: watch for new nodes and late-added data-moveo-element-track
         const mutationObserver = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
+            if (mutation.type === "attributes") {
+              const target = mutation.target;
+              if (
+                !target ||
+                target.nodeType !== 1 ||
+                !target.ownerDocument ||
+                target.ownerDocument !== document
+              ) {
+                return;
+              }
+              addIfInteresting(target);
+              return;
+            }
             mutation.addedNodes.forEach((node) => {
               if (node.nodeType !== 1) return;
               addIfInteresting(node);
@@ -1179,10 +1192,12 @@
             });
           });
         });
-  
+
         mutationObserver.observe(document.documentElement, {
           childList: true,
           subtree: true,
+          attributes: true,
+          attributeFilter: [DATA_MOVEO_ELEMENT_TRACK],
         });
   
         // Clean up timeouts when page unloads to prevent memory leaks
