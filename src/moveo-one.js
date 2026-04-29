@@ -1774,8 +1774,8 @@
           if (style.display === "none" || style.visibility === "hidden") {
             return false;
           }
-          const rect = element.getBoundingClientRect();
-          if (rect.width === 0 || rect.height === 0) return false;
+          // Visibility is determined by IntersectionObserver; omit getBoundingClientRect here
+          // so early scans do not reject nodes before layout has non-zero bounds.
           return true;
         }
 
