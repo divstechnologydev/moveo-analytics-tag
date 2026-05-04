@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.20"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.22"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
@@ -1167,9 +1167,22 @@
           performInitialScan();
         }
   
-        // SPA / lazy-load support: watch for new nodes
+        // SPA / lazy-load support: watch for new nodes and late-added data-moveo-element-track
         const mutationObserver = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
+            if (mutation.type === "attributes") {
+              const target = mutation.target;
+              if (
+                !target ||
+                target.nodeType !== 1 ||
+                !target.ownerDocument ||
+                target.ownerDocument !== document
+              ) {
+                return;
+              }
+              addIfInteresting(target);
+              return;
+            }
             mutation.addedNodes.forEach((node) => {
               if (node.nodeType !== 1) return;
               addIfInteresting(node);
@@ -1179,10 +1192,12 @@
             });
           });
         });
-  
+
         mutationObserver.observe(document.documentElement, {
           childList: true,
           subtree: true,
+          attributes: true,
+          attributeFilter: [DATA_MOVEO_ELEMENT_TRACK],
         });
   
         // Clean up timeouts when page unloads to prevent memory leaks
@@ -1759,8 +1774,8 @@
           if (style.display === "none" || style.visibility === "hidden") {
             return false;
           }
-          const rect = element.getBoundingClientRect();
-          if (rect.width === 0 || rect.height === 0) return false;
+          // Visibility is determined by IntersectionObserver; omit getBoundingClientRect here
+          // so early scans do not reject nodes before layout has non-zero bounds.
           return true;
         }
 
