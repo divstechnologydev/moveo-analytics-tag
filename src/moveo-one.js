@@ -80,6 +80,8 @@
         this.pendingImmediateEvents = []; // Queue for immediate events before session starts
         this.elementAppearPath = new WeakMap(); // Element -> path it appeared on (used for disappear sc/eID after SPA route changes)
         this._routeChangeInstalled = false; // history.pushState/replaceState/popstate hook installed once per page
+        this.landingPath = this.getCurrentPath(); // Path of the full page load (a client-side redirect can change it before start() finishes)
+        this.pendingRouteViews = []; // Route page_views that happened before the session started
 
         // WEB_APP user-data sync state (late-login / account-switch detection)
         this._userDataSignature = "";
@@ -882,6 +884,8 @@
             this.flush();
           }
 
+          this.processPendingRouteViews();
+
           // Check for user data that may have appeared since the previous page (WEB_APP only)
           this.syncUserDataFromStorage();
           this.startUserDataSync();
@@ -905,15 +909,7 @@
           }
   
           // Track initial page view for the return visit
-          this.track("page_view", {
-            semanticGroup: "global",
-            id: this.generateGlobalEventId("page_view", {
-              path: this.getCurrentPath(),
-            }),
-            type: "page",
-            action: "page_view",
-            value: this.getCurrentPath(),
-          });
+          this.trackPageView(this.landingPath);
   
           this.track("viewport_size", {
             semanticGroup: "global",
@@ -924,6 +920,8 @@
             action: "viewport_size",
             value: `${this.currentViewport.width}x${this.currentViewport.height}`,
           });
+
+          this.processPendingRouteViews();
 
           // Check for user data that may have appeared since the session began (WEB_APP only)
           this.syncUserDataFromStorage();
@@ -1032,27 +1030,42 @@
         this.flush();
   
         // Track initial page view
-        this.track("page_view", {
-          semanticGroup: "global",
-          id: this.generateGlobalEventId("page_view", {
-            path: this.getCurrentPath(),
-          }),
-          type: "page",
-          action: "page_view",
-          value: this.getCurrentPath(),
-        });
+        this.trackPageView(this.landingPath);
   
         this.track("viewport_size", {
           semanticGroup: "global",
           id: this.generateGlobalEventId("viewport_size", {
-            path: this.getCurrentPath(),
+            path: this.landingPath,
           }),
           type: "viewport",
           action: "viewport_size",
           value: `${this.currentViewport.width}x${this.currentViewport.height}`,
         });
+
+        this.processPendingRouteViews();
       }
-  
+
+      // page_view for a path (full load or client-side route change)
+      trackPageView(path) {
+        this.track("page_view", {
+          semanticGroup: "global",
+          id: this.generateGlobalEventId("page_view", {
+            path: path,
+          }),
+          type: "page",
+          action: "page_view",
+          value: path,
+          section: path,
+        });
+      }
+
+      // Send route page_views that happened before the session started, after the landing page_view
+      processPendingRouteViews() {
+        const paths = this.pendingRouteViews;
+        this.pendingRouteViews = [];
+        paths.forEach((path) => this.trackPageView(path));
+      }
+
       initImpressionObserver() {
         if (this.exclude_detailed_tracking) return;
   
@@ -2221,15 +2234,12 @@
               // Storage may be unavailable; page_view below is still sent
             }
 
-            this.track("page_view", {
-              semanticGroup: "global",
-              id: this.generateGlobalEventId("page_view", {
-                path: path,
-              }),
-              type: "page",
-              action: "page_view",
-              value: path,
-            });
+            if (!this.started) {
+              // start() has not sent the landing page_view yet; send this one right after it
+              this.pendingRouteViews.push(path);
+              return;
+            }
+            this.trackPageView(path);
           } catch (error) {
             if (LOGGING_ENABLED) {
               console.warn("MoveoOne: route change tracking failed", error);
@@ -3160,7 +3170,7 @@
 
         // For page-specific events, include the current path
         if (eventType === "page_view" || eventType === "viewport_size") {
-          const currentPath = this.getCurrentPath();
+          const currentPath = additionalData.path || this.getCurrentPath();
           uniqueKey += `_${this.hashString(currentPath)}`;
         }
 
