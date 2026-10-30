@@ -4,7 +4,7 @@
   
     const API_URL = "{{API_URL}}";
     const DOLPHIN_URL = "{{DOLPHIN_URL}}";
-    const LIB_VERSION = "1.0.22"; // Constant library version - cannot be changed by client
+    const LIB_VERSION = "1.0.23"; // Constant library version - cannot be changed by client
     const LOGGING_ENABLED = false; // Enable/disable console logging
 
     const REDACTED_VALUE = "[REDACTED]";
@@ -78,6 +78,10 @@
         this.trackedMedia = new WeakSet(); // Track media without DOM attributes
         this.pendingImpressions = []; // Queue for impression events before session starts
         this.pendingImmediateEvents = []; // Queue for immediate events before session starts
+        this.elementAppearPath = new WeakMap(); // Element -> path it appeared on (used for disappear sc/eID after SPA route changes)
+        this._routeChangeInstalled = false; // history.pushState/replaceState/popstate hook installed once per page
+        this.landingPath = this.getCurrentPath(); // Path of the full page load (a client-side redirect can change it before start() finishes)
+        this.pendingRouteViews = []; // Route page_views that happened before the session started
 
         // WEB_APP user-data sync state (late-login / account-switch detection)
         this._userDataSignature = "";
@@ -338,6 +342,7 @@
         this.setupHoverTracking();
         this.setupResizeTracking();
         this.setupPageUnloadTracking();
+        this.setupRouteChangeTracking();
         this.setupMediaTracking();
         this.setupClipboardTracking();
   
@@ -506,9 +511,9 @@
       // Process all pending impression events after session starts
       processPendingImpressions() {
         if (this.pendingImpressions && this.pendingImpressions.length > 0) {
-          this.pendingImpressions.forEach(({ el, rect, action, timestamp }) => {
-            // Send with original timestamp
-            this.sendAutoImpressionWithTimestamp(el, rect, action, timestamp);
+          this.pendingImpressions.forEach(({ el, rect, action, timestamp, path }) => {
+            // Send with original timestamp and the path the impression was observed on
+            this.sendAutoImpressionWithTimestamp(el, rect, action, timestamp, path);
           });
           this.pendingImpressions = [];
         }
@@ -553,14 +558,17 @@
       }
   
       // Send impression event with specific timestamp
-      sendAutoImpressionWithTimestamp(el, rect, action, timestamp) {
+      sendAutoImpressionWithTimestamp(el, rect, action, timestamp, path) {
         if (this.exclude_detailed_tracking && (action === "appear" || action === "disappear")) return;
         let value = this.computeImpressionDisplayValue(el);
         value = this.applyMoveoElementValueOverride(el, value);
 
+        // Use the path captured when the impression was queued (a route change may have happened since)
+        const section = this.resolveImpressionSection(el, action, path);
+
         const data = {
           semanticGroup: this.getSemanticGroup(el),
-          id: this.generateStableElementId(el),
+          id: this.generateStableElementId(el, section),
           type: this.getMoveoEventType(el, el.tagName.toLowerCase()),
           action: action,
           value: value,
@@ -577,7 +585,7 @@
             eA: data.action,
             eT: data.type,
             eV: data.value,
-            sc: this.getCurrentPath(),
+            sc: section,
           },
           sId: this.sessionId,
         };
@@ -666,7 +674,8 @@
             eA: data.action,
             eT: data.type,
             eV: data.value || "",
-            sc: this.getCurrentPath(),
+            // data.section is only set by impression events so a "disappear" keeps the path the element appeared on
+            sc: data.section || this.getCurrentPath(),
           },
           sId: this.sessionId,
         };
@@ -875,6 +884,8 @@
             this.flush();
           }
 
+          this.processPendingRouteViews();
+
           // Check for user data that may have appeared since the previous page (WEB_APP only)
           this.syncUserDataFromStorage();
           this.startUserDataSync();
@@ -898,15 +909,7 @@
           }
   
           // Track initial page view for the return visit
-          this.track("page_view", {
-            semanticGroup: "global",
-            id: this.generateGlobalEventId("page_view", {
-              path: this.getCurrentPath(),
-            }),
-            type: "page",
-            action: "page_view",
-            value: this.getCurrentPath(),
-          });
+          this.trackPageView(this.landingPath);
   
           this.track("viewport_size", {
             semanticGroup: "global",
@@ -917,6 +920,8 @@
             action: "viewport_size",
             value: `${this.currentViewport.width}x${this.currentViewport.height}`,
           });
+
+          this.processPendingRouteViews();
 
           // Check for user data that may have appeared since the session began (WEB_APP only)
           this.syncUserDataFromStorage();
@@ -1025,27 +1030,42 @@
         this.flush();
   
         // Track initial page view
-        this.track("page_view", {
-          semanticGroup: "global",
-          id: this.generateGlobalEventId("page_view", {
-            path: this.getCurrentPath(),
-          }),
-          type: "page",
-          action: "page_view",
-          value: this.getCurrentPath(),
-        });
+        this.trackPageView(this.landingPath);
   
         this.track("viewport_size", {
           semanticGroup: "global",
           id: this.generateGlobalEventId("viewport_size", {
-            path: this.getCurrentPath(),
+            path: this.landingPath,
           }),
           type: "viewport",
           action: "viewport_size",
           value: `${this.currentViewport.width}x${this.currentViewport.height}`,
         });
+
+        this.processPendingRouteViews();
       }
-  
+
+      // page_view for a path (full load or client-side route change)
+      trackPageView(path) {
+        this.track("page_view", {
+          semanticGroup: "global",
+          id: this.generateGlobalEventId("page_view", {
+            path: path,
+          }),
+          type: "page",
+          action: "page_view",
+          value: path,
+          section: path,
+        });
+      }
+
+      // Send route page_views that happened before the session started, after the landing page_view
+      processPendingRouteViews() {
+        const paths = this.pendingRouteViews;
+        this.pendingRouteViews = [];
+        paths.forEach((path) => this.trackPageView(path));
+      }
+
       initImpressionObserver() {
         if (this.exclude_detailed_tracking) return;
   
@@ -1305,6 +1325,7 @@
             rect,
             action,
             timestamp: Date.now(),
+            path: this.getCurrentPath(), // Remember the page the impression happened on
           });
           return;
         }
@@ -1312,15 +1333,36 @@
         let value = this.computeImpressionDisplayValue(el);
         value = this.applyMoveoElementValueOverride(el, value);
 
+        const section = this.resolveImpressionSection(el, action);
+
         const data = {
           semanticGroup: this.getSemanticGroup(el),
-          id: this.generateStableElementId(el),
+          id: this.generateStableElementId(el, section),
           type: this.getMoveoEventType(el, el.tagName.toLowerCase()),
           action: action,
           value: value,
+          section: section,
         };
   
         this.track("impression", data);
+      }
+
+      // Section (page path) for an impression event. "appear" records the current path for the element;
+      // "disappear" reuses the path the element appeared on, so elements removed during a client-side
+      // route change keep the sc and eID of the page they were actually seen on. On regular multi-page
+      // sites the path never changes within a page load, so this is identical to reading the current path.
+      resolveImpressionSection(el, action, path) {
+        const currentPath = path || this.getCurrentPath();
+        if (action === "appear") {
+          this.elementAppearPath.set(el, currentPath);
+          return currentPath;
+        }
+        if (action === "disappear") {
+          const appearPath = this.elementAppearPath.get(el);
+          this.elementAppearPath.delete(el);
+          return appearPath || currentPath;
+        }
+        return currentPath;
       }
   
       // Helper method to extract filename from URL
@@ -2154,6 +2196,71 @@
         });
       }
   
+      // Normalize a path for "did the page change" comparisons only: treat "/pricing" and "/pricing/" as the same page
+      normalizePathForComparison(path) {
+        if (typeof path !== "string") return path;
+        return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+      }
+
+      // Client-side route changes (Next.js, React Router, Vue Router, ...) swap the page without a full load,
+      // so start() never runs again. Wrap history.pushState/replaceState and listen to popstate (back/forward)
+      // and send the same page_view event a full page load sends whenever the path changes.
+      // Hash-only and query-only changes are ignored. Regular multi-page sites never call pushState, so the
+      // hook stays idle there.
+      setupRouteChangeTracking() {
+        if (this._routeChangeInstalled) return;
+        if (
+          typeof window.history === "undefined" ||
+          typeof window.history.pushState !== "function"
+        ) {
+          return;
+        }
+        this._routeChangeInstalled = true;
+
+        let lastPath = this.normalizePathForComparison(this.getCurrentPath());
+
+        const onRouteChange = () => {
+          // Tracking must never break the host site's navigation
+          try {
+            const path = this.getCurrentPath();
+            const comparablePath = this.normalizePathForComparison(path);
+            if (comparablePath === lastPath) return;
+            lastPath = comparablePath;
+
+            // Keep the stored path in sync so a later full reload is classified correctly
+            try {
+              localStorage.setItem("moveo-last-path", path);
+            } catch (e) {
+              // Storage may be unavailable; page_view below is still sent
+            }
+
+            if (!this.started) {
+              // start() has not sent the landing page_view yet; send this one right after it
+              this.pendingRouteViews.push(path);
+              return;
+            }
+            this.trackPageView(path);
+          } catch (error) {
+            if (LOGGING_ENABLED) {
+              console.warn("MoveoOne: route change tracking failed", error);
+            }
+          }
+        };
+
+        ["pushState", "replaceState"].forEach((method) => {
+          const original = window.history[method];
+          if (typeof original !== "function") return;
+          window.history[method] = function (...args) {
+            // Call the original first so other wrappers (frameworks, other analytics) keep working
+            const result = original.apply(this, args);
+            onRouteChange();
+            return result;
+          };
+        });
+
+        window.addEventListener("popstate", onRouteChange);
+      }
+
       setupMediaTracking() {
         // Track existing media elements
         const trackMediaElements = () => {
@@ -2897,8 +3004,7 @@
       }
   
       // Generate stable, unique element ID that persists across page loads
-      generateStableElementId(element) {
-        const section = this.getCurrentPath();
+      generateStableElementId(element, section = this.getCurrentPath()) {
 
         const moveoOnSelf = this.getMoveoElementIdOnSelf(element);
         if (moveoOnSelf != null) {
@@ -2915,7 +3021,7 @@
         }
   
         // Build a stable signature using only immutable properties
-        const signature = this.buildStableSignature(element);
+        const signature = this.buildStableSignature(element, section);
         const signatureHash = this.hashString(JSON.stringify(signature));
   
         // Ensure the final ID is not too long and is clean
@@ -2924,11 +3030,11 @@
       }
   
       // Build a stable signature using only immutable element properties
-      buildStableSignature(element) {
+      buildStableSignature(element, section = this.getCurrentPath()) {
         const signature = {
           tag: element.tagName.toLowerCase(),
           // Include the section (page path) the element is on
-          section: this.getCurrentPath(),
+          section: section,
           // Only include stable attributes that don't change
           stableAttributes: this.getStableAttributes(element),
           // Only include stable content that doesn't change
@@ -3064,7 +3170,7 @@
 
         // For page-specific events, include the current path
         if (eventType === "page_view" || eventType === "viewport_size") {
-          const currentPath = this.getCurrentPath();
+          const currentPath = additionalData.path || this.getCurrentPath();
           uniqueKey += `_${this.hashString(currentPath)}`;
         }
 

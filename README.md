@@ -52,6 +52,50 @@ You can track your application version by setting it during initialization:
 </script>
 ```
 
+### Single-page apps and client-side routing (Next.js, React Router, Vue Router, ...)
+
+Client-side route changes are tracked automatically; there is nothing to configure. On a full page load the script sends a `page_view` as before. When the app changes the URL without reloading (`history.pushState`, `history.replaceState`, or the back/forward buttons via `popstate`) and the **path** changes, the script sends the same `page_view` event (same shape and ID as a full load of that path) and updates its stored last path. Hash-only (`#section`) and query-only changes do not count as page views, and `/pricing` and `/pricing/` are treated as the same page. Regular multi-page sites never call `pushState`, so nothing changes for them.
+
+During a client-side navigation, elements of the previous page that leave the viewport send their `disappear` impression with the section (`sc`) and element ID of the page they appeared on, not the new path.
+
+#### Next.js
+
+The tag and its options are the same as for any other site; no Next.js-specific parameters exist. Only the way the script is included matters:
+
+- Load it **once**, in the root layout (App Router) or `_app.js` (Pages Router), typically with `next/script`. Any strategy works (`beforeInteractive`, `afterInteractive`, `lazyOnload`).
+- Call `MoveoOne.init(...)` **after the script has loaded**. With `afterInteractive` or `lazyOnload` the script loads asynchronously, so use the `onLoad` callback instead of a plain inline `<script>`.
+- All options (`type`, `appVersion`, `storageSource`, `userDataKeys`, `exclude_detailed_tracking`) behave exactly as described above. Route tracking is on for both `STATIC_WEBSITE` and `WEB_APP`.
+
+```jsx
+// components/MoveoOne.js — `onLoad` requires a client component
+'use client';
+import Script from 'next/script';
+
+export default function MoveoOne() {
+  return (
+    <Script
+      src="https://moveoonestorage.blob.core.windows.net/000-scripts/moveo-one-script.min.js"
+      strategy="afterInteractive"
+      onLoad={() => window.MoveoOne.init('YOUR_TOKEN_HERE', { type: 'WEB_APP' })}
+    />
+  );
+}
+
+// app/layout.js (App Router) — render it once; same idea in pages/_app.js
+import MoveoOne from '@/components/MoveoOne';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <MoveoOne />
+      </body>
+    </html>
+  );
+}
+```
+
 ### User data from storage (WEB_APP only)
 
 When `type` is `WEB_APP`, you can optionally pass a **storage source** and a list of **user data keys**. The script will read those keys from the chosen storage (e.g. your app’s `localStorage` or `sessionStorage`) when building the first session and add the key–value pairs to **session metadata** (`meta`), not to additional metadata. This only runs when `type === 'WEB_APP'`; for `STATIC_WEBSITE` these options are ignored.
