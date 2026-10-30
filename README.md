@@ -52,6 +52,12 @@ You can track your application version by setting it during initialization:
 </script>
 ```
 
+### Single-page apps and client-side routing (Next.js, React Router, Vue Router, ...)
+
+Client-side route changes are tracked automatically; there is nothing to configure. On a full page load the script sends a `page_view` as before. When the app changes the URL without reloading (`history.pushState`, `history.replaceState`, or the back/forward buttons via `popstate`) and the **path** changes, the script sends the same `page_view` event (same shape and ID as a full load of that path) and updates its stored last path. Hash-only (`#section`) and query-only changes do not count as page views, and `/pricing` and `/pricing/` are treated as the same page. Regular multi-page sites never call `pushState`, so nothing changes for them.
+
+During a client-side navigation, elements of the previous page that leave the viewport send their `disappear` impression with the section (`sc`) and element ID of the page they appeared on, not the new path.
+
 ### User data from storage (WEB_APP only)
 
 When `type` is `WEB_APP`, you can optionally pass a **storage source** and a list of **user data keys**. The script will read those keys from the chosen storage (e.g. your app’s `localStorage` or `sessionStorage`) when building the first session and add the key–value pairs to **session metadata** (`meta`), not to additional metadata. This only runs when `type === 'WEB_APP'`; for `STATIC_WEBSITE` these options are ignored.
